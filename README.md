@@ -11,4 +11,9 @@ to the county is recorded once and inherited by every sub under it.
 no build, no server, no account. Data lives in the browser under `subIntelDB`,
 with JSON export/import to move or merge libraries.
 
+Opening it with `#/demo` on the end of the URL seeds a worked example — a
+made-up Houston with two jurisdictions, two subdivisions and four control
+points — so you can hand the link to someone cold. It never overwrites an
+existing library.
+
 See [SUB_INTEL.md](SUB_INTEL.md) for what's in it and why.

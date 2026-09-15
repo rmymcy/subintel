@@ -510,6 +510,7 @@ function go(h){if(location.hash===h)readRoute();else location.hash=h;}
 function readRoute(){
   const h=(location.hash||'#/').replace(/^#/,'');
   const [,kind,id]=h.split('/');
+  if(kind==='demo'){demoRoute();return;}
   if(kind==='c'&&city(id))route={v:'city',id};
   else if(kind==='j'&&jur(id))route={v:'jur',id};
   else if(kind==='s'&&sub(id))route={v:'sub',id};
@@ -518,6 +519,14 @@ function readRoute(){
   document.querySelector('main').scrollTop=0;
 }
 window.addEventListener('hashchange',readRoute);
+
+/* #/demo — the link you send someone cold. Seeds the example library on
+   their machine and drops them into it; if they already have data it just
+   goes home, so the link is never destructive. */
+function demoRoute(){
+  if(DB.cities.length){location.hash='#/';return;}
+  loadDemo();
+}
 
 function contextAdd(){
   if(searchQ)return;
@@ -1613,6 +1622,7 @@ document.addEventListener('keydown',e=>{
 });
 
 load();
+if(/(^|[?&])demo\b/.test(location.search)&&!DB.cities.length)loadDemo();
 readRoute();
 </script>
 </body>

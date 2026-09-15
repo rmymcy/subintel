@@ -122,6 +122,23 @@ Consequences of that shape, on purpose:
   the file, the browser store stays small, and an export is a small JSON.
   A network path works: `file:///V:/Standards/spec.pdf`.
 
+## Sharing it
+
+Open `sub_intel.html` and the library is empty; the landing page offers
+**load example data** — a made-up Houston with Harris County, the City of Katy,
+two subdivisions and four control points, enough to see every part of the tool
+working. Erase it from `⇅ → erase the whole library` when the real library starts.
+
+Two links skip that button and seed the example on arrival, for handing the tool
+to someone cold:
+
+```
+sub_intel.html#/demo
+sub_intel.html?demo
+```
+
+Neither is destructive — if that browser already has a library, they just open it.
+
 ## Import, export, merging
 
 `⇅` exports the whole library as JSON and imports one back. **Import merges** —

@@ -1,0 +1,1619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sub Intel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#f5f5f7;
+  --bg-soft:#e8e8ed;
+  --bg-panel:#ffffff;
+  --border:#d1d1d6;
+  --border-soft:#e4e4e9;
+  --text:#1d1c18;
+  --muted:#696660;
+  --faint:#95928c;
+  --blue:#1e4974;
+  --blue-soft:#2e5d8b;
+  --blue-deep:#143659;
+  --blue-wash:#e7eef6;
+  --red:#a82626;
+  --red-wash:#f5e3e3;
+  --green:#5c7f3f;
+  --green-wash:#eef1e3;
+  --amber:#b07419;
+  --amber-wash:#fae9c4;
+  --amber-ink:#7a5210;
+  --orange:#c2521f;
+  --orange-wash:#fbe7dc;
+  --silver:#aeaeb2;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 1px 1px rgba(0,0,0,.04);
+  --shadow-lg:0 8px 22px rgba(0,0,0,.10),0 3px 6px rgba(0,0,0,.05);
+  --radius:8px;
+  --radius-sm:5px;
+  --font:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#16181c;
+    --bg-soft:#22252b;
+    --bg-panel:#1d2025;
+    --border:#33373f;
+    --border-soft:#2a2e35;
+    --text:#e9e8e4;
+    --muted:#9a978f;
+    --faint:#6d6a64;
+    --blue:#6ea3d8;
+    --blue-soft:#8bb8e6;
+    --blue-deep:#0f2740;
+    --blue-wash:#1c2c3d;
+    --red:#e08080;
+    --red-wash:#3a2222;
+    --green:#a3c47d;
+    --green-wash:#26301c;
+    --amber:#e0a94a;
+    --amber-wash:#3a2e14;
+    --amber-ink:#e8c37c;
+    --orange:#e0895b;
+    --orange-wash:#3a2318;
+    --silver:#5a5d64;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+    --shadow-lg:0 8px 22px rgba(0,0,0,.5),0 3px 6px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16181c; --bg-soft:#22252b; --bg-panel:#1d2025; --border:#33373f; --border-soft:#2a2e35;
+  --text:#e9e8e4; --muted:#9a978f; --faint:#6d6a64;
+  --blue:#6ea3d8; --blue-soft:#8bb8e6; --blue-deep:#0f2740; --blue-wash:#1c2c3d;
+  --red:#e08080; --red-wash:#3a2222; --green:#a3c47d; --green-wash:#26301c;
+  --amber:#e0a94a; --amber-wash:#3a2e14; --amber-ink:#e8c37c;
+  --orange:#e0895b; --orange-wash:#3a2318; --silver:#5a5d64;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+  --shadow-lg:0 8px 22px rgba(0,0,0,.5),0 3px 6px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex;flex-direction:column;overflow:hidden;-webkit-text-size-adjust:100%}
+
+/* ── chrome ── */
+header{display:flex;align-items:center;gap:9px;padding:9px 12px 9px 52px;background:var(--bg-panel);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+header h1{font-size:15px;font-weight:700;letter-spacing:-.01em;cursor:pointer;white-space:nowrap}
+.ver{font-size:10px;color:var(--faint);margin-left:2px;font-weight:500}
+#search{flex:1;min-width:150px;max-width:380px;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font:inherit;font-size:12.5px;background:var(--bg);color:var(--text)}
+#search:focus{outline:none;border-color:var(--blue-soft)}
+.spacer{flex:1}
+.count-note{font-size:11px;color:var(--muted);white-space:nowrap}
+.btn{padding:6px 11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-panel);font:inherit;font-size:12px;font-weight:600;cursor:pointer;color:var(--text);transition:background .1s;white-space:nowrap}
+.btn:hover{background:var(--bg-soft)}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue-soft)}
+.btn-danger{color:var(--red);border-color:var(--red);background:transparent}
+.btn-danger:hover{background:var(--red-wash)}
+.btn-sm{padding:3px 8px;font-size:11px}
+.btn-icon{padding:5px 8px;font-size:13px;line-height:1}
+
+#crumbs{display:flex;align-items:center;gap:5px;padding:7px 14px;background:var(--bg-soft);border-bottom:1px solid var(--border);font-size:11.5px;flex-shrink:0;overflow-x:auto;white-space:nowrap}
+#crumbs a{color:var(--blue);text-decoration:none;font-weight:600;cursor:pointer}
+#crumbs a:hover{text-decoration:underline}
+#crumbs .sep{color:var(--faint)}
+#crumbs .here{color:var(--muted);font-weight:600}
+
+main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+.wrap{padding:14px;max-width:1320px;margin:0 auto}
+
+/* ── section / list chrome ── */
+.view-head{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.view-title{font-size:19px;font-weight:700;letter-spacing:-.02em}
+.view-sub{font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:11px;align-content:flex-start}
+.grid.wide{grid-template-columns:repeat(auto-fill,minmax(310px,1fr))}
+.card{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:12px 13px;box-shadow:var(--shadow);cursor:pointer;transition:box-shadow .1s,border-color .1s;position:relative}
+.card:hover{box-shadow:var(--shadow-lg);border-color:var(--blue-soft)}
+.card.dim{opacity:.2}
+.card.empty-intel{background:var(--bg);border-style:dashed;box-shadow:none}
+.card-title{font-size:14px;font-weight:700;display:flex;align-items:center;gap:7px;letter-spacing:-.01em}
+.card-title .kind{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:3px;padding:1px 5px;flex-shrink:0;background:var(--bg-soft);color:var(--muted)}
+.card-title .kind.county{background:var(--green-wash);color:var(--green)}
+.card-title .kind.city{background:var(--blue-wash);color:var(--blue)}
+.card-title .kind.mud{background:var(--amber-wash);color:var(--amber-ink)}
+.card-meta{font-size:11.5px;color:var(--muted);margin-top:4px}
+.card-stat{display:flex;gap:12px;margin-top:9px;font-size:11px;color:var(--muted)}
+.card-stat b{color:var(--text);font-size:13px;font-weight:700;display:block;line-height:1.2}
+.edit-dot{position:absolute;top:8px;right:8px;opacity:0;font-size:11px;color:var(--muted);background:var(--bg-soft);border:1px solid var(--border);border-radius:4px;padding:1px 6px;cursor:pointer;transition:opacity .1s}
+.card:hover .edit-dot{opacity:1}
+.edit-dot:hover{color:var(--blue);border-color:var(--blue)}
+
+/* ── requirement flags ── */
+.flags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.flag{font-size:11px;line-height:1;padding:3px 6px;border-radius:4px;background:var(--bg-soft);border:1px solid var(--border-soft);cursor:default;display:inline-flex;align-items:center;gap:4px}
+.flag .fl{font-size:10px;font-weight:600;color:var(--muted)}
+.flag.lg{font-size:13px;padding:5px 9px}
+.flag.lg .fl{font-size:11.5px;color:var(--text)}
+.flag.inherit{opacity:.72;border-style:dashed}
+
+/* ── sub detail ── */
+.detail-head{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);margin-bottom:12px}
+.detail-title{font-size:21px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.detail-where{font-size:12px;color:var(--muted);margin-top:2px}
+.gate-row{display:flex;align-items:center;gap:9px;margin-top:11px;flex-wrap:wrap}
+.gate-code{font-family:var(--mono);font-size:19px;font-weight:700;background:var(--blue-deep);color:#fff;border-radius:var(--radius-sm);padding:5px 14px;letter-spacing:.08em;cursor:copy}
+.gate-code:hover{background:var(--blue)}
+.gate-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.warn-box{margin-top:10px;background:var(--amber-wash);border:1px solid var(--amber);border-radius:var(--radius-sm);padding:8px 10px;font-size:12.5px;color:var(--amber-ink);font-weight:600}
+.warn-box::before{content:"⚠ "}
+.contact-row{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+.contact{font-size:12.5px}
+.contact .lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;display:block}
+.contact a{color:var(--blue);text-decoration:none;font-weight:600}
+.contact a:hover{text-decoration:underline}
+
+.panel{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:8px;padding:9px 13px;border-bottom:1px solid var(--border-soft);background:var(--bg-panel)}
+.panel-head h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.panel-head .n{font-size:10px;color:var(--faint);font-weight:600}
+.panel-body{padding:12px 13px}
+.panel-body.flush{padding:0}
+
+/* coordinate system block */
+.crs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.crs-cell .lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.crs-cell .val{font-size:13px;font-weight:600;margin-top:2px;word-break:break-word}
+.crs-cell .val.mono{font-family:var(--mono);font-size:12.5px}
+.crs-cell .val.none{color:var(--faint);font-weight:400;font-style:italic}
+.inherit-note{font-size:10.5px;color:var(--faint);margin-top:8px;font-style:italic}
+
+/* requirement rows */
+.req{display:flex;gap:9px;padding:9px 13px;border-bottom:1px solid var(--border-soft);align-items:flex-start}
+.req:last-child{border-bottom:none}
+.req:hover{background:var(--bg)}
+.req-sev{width:3px;align-self:stretch;border-radius:2px;background:var(--silver);flex-shrink:0}
+.req-sev.required{background:var(--amber)}
+.req-sev.critical{background:var(--red)}
+.req-body{flex:1;min-width:0}
+.req-title{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.req-detail{font-size:12px;color:var(--muted);margin-top:3px;white-space:pre-wrap}
+.tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:3px;padding:1px 5px;background:var(--bg-soft);color:var(--muted);flex-shrink:0}
+.tag.required{background:var(--amber-wash);color:var(--amber-ink)}
+.tag.critical{background:var(--red-wash);color:var(--red)}
+.tag.src{background:var(--blue-wash);color:var(--blue)}
+.req-act{display:flex;gap:4px;opacity:0;flex-shrink:0}
+.req:hover .req-act{opacity:1}
+
+/* documents */
+.doc{display:flex;align-items:center;gap:9px;padding:8px 13px;border-bottom:1px solid var(--border-soft);text-decoration:none;color:inherit}
+.doc:last-child{border-bottom:none}
+.doc:hover{background:var(--bg)}
+.doc-ico{font-size:15px;flex-shrink:0;width:20px;text-align:center}
+.doc-body{flex:1;min-width:0}
+.doc-title{font-size:12.5px;font-weight:600;color:var(--blue)}
+.doc-sub{font-size:10.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
+
+/* notes */
+.note-box{font-size:12.5px;color:var(--text);white-space:pre-wrap;line-height:1.5}
+.empty-line{font-size:12px;color:var(--faint);font-style:italic;padding:11px 13px}
+.empty-hint{color:var(--muted);font-size:12.5px;padding:44px 20px;text-align:center;grid-column:1/-1;line-height:1.6}
+
+/* ── map ── */
+.map-bar{display:flex;align-items:center;gap:7px;padding:7px 10px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap;background:var(--bg-panel)}
+.map-wrap{position:relative;height:420px;background:var(--bg-soft)}
+.map-wrap.tall{height:min(66vh,620px)}
+.leaflet-container{height:100%;width:100%;background:var(--bg-soft);font-family:var(--font)}
+.map-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;text-align:center;padding:20px;font-size:12.5px;color:var(--muted);background:var(--bg-soft);z-index:500}
+.map-hint{pointer-events:none;position:absolute;left:50%;transform:translateX(-50%);top:9px;z-index:600;background:var(--blue-deep);color:#fff;font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:99px;box-shadow:var(--shadow-lg)}
+.pin{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45);font-family:var(--mono)}
+.pin.bm{width:22px;height:22px;border-radius:50%;background:#1e4974}
+.pin.tbm{width:20px;height:20px;background:#c2521f;transform:rotate(45deg)}
+.pin.tbm span{transform:rotate(-45deg)}
+.pin.sub{width:15px;height:15px;border-radius:50%;background:#5c7f3f}
+.pin.near{opacity:.62;filter:saturate(.45)}
+.leaflet-popup-content{margin:9px 11px;font-size:12.5px;line-height:1.45}
+.leaflet-popup-content h4{font-size:13px;margin-bottom:3px}
+.pop-row{display:flex;gap:6px;font-size:11.5px;margin-top:2px}
+.pop-row .lbl{color:#696660;text-transform:uppercase;font-size:9px;letter-spacing:.05em;font-weight:700;min-width:42px;padding-top:2px}
+.pop-row .v{font-family:var(--mono);font-size:11.5px}
+.pop-docs{margin-top:6px;border-top:1px solid #e4e4e9;padding-top:5px}
+.pop-docs a{display:block;font-size:11.5px;color:#1e4974;font-weight:600;text-decoration:none;padding:1px 0}
+.pop-docs a:hover{text-decoration:underline}
+.pop-act{margin-top:7px;display:flex;gap:6px}
+.pop-act button,.pop-act a{font:inherit;font-size:10.5px;font-weight:700;padding:3px 7px;border-radius:4px;border:1px solid #d1d1d6;background:#fff;color:#1d1c18;cursor:pointer;text-decoration:none}
+
+/* control point list */
+.cp{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--border-soft);cursor:pointer}
+.cp:last-child{border-bottom:none}
+.cp:hover{background:var(--bg)}
+.cp-badge{font-size:9px;font-weight:700;letter-spacing:.04em;border-radius:3px;padding:2px 6px;flex-shrink:0;font-family:var(--mono)}
+.cp-badge.BM{background:var(--blue-wash);color:var(--blue)}
+.cp-badge.TBM{background:var(--orange-wash);color:var(--orange)}
+.cp-body{flex:1;min-width:0}
+.cp-name{font-size:12.5px;font-weight:700}
+.cp-meta{font-size:11px;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cp-elev{font-family:var(--mono);font-size:13px;font-weight:700;text-align:right;flex-shrink:0}
+.cp-elev small{display:block;font-size:9px;color:var(--faint);font-weight:600;font-family:var(--font);text-transform:uppercase;letter-spacing:.04em}
+
+/* chips */
+.chip{padding:4px 10px;border:1px solid var(--border);border-radius:99px;background:var(--bg-panel);font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;color:var(--muted);white-space:nowrap}
+.chip.on{background:var(--blue-wash);border-color:var(--blue);color:var(--blue)}
+.chiprow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+
+/* ── search results ── */
+.res-group{margin-bottom:16px}
+.res-group h4{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;font-weight:700}
+.res{display:flex;align-items:center;gap:9px;padding:8px 11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:5px;cursor:pointer}
+.res:hover{border-color:var(--blue-soft);background:var(--bg-soft)}
+.res-ico{font-size:14px;width:20px;text-align:center;flex-shrink:0}
+.res-main{flex:1;min-width:0}
+.res-name{font-size:13px;font-weight:600}
+.res-path{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+mark{background:var(--amber-wash);color:inherit;border-radius:2px;padding:0 1px}
+
+/* ── modal ── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1200;display:none;align-items:center;justify-content:center;padding:14px}
+.overlay.open{display:flex}
+.modal{background:var(--bg-panel);border-radius:var(--radius);box-shadow:var(--shadow-lg);width:480px;max-width:96vw;padding:16px;max-height:92vh;overflow-y:auto}
+.modal.lg{width:620px}
+.modal h2{font-size:15px;margin-bottom:2px;letter-spacing:-.01em}
+.modal .sub-meta{font-size:11px;color:var(--muted);margin-bottom:6px}
+.modal label{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:10px 0 3px}
+.modal input[type=text],.modal input[type=tel],.modal input[type=url],.modal input[type=number],.modal textarea,.modal select{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);font:inherit;font-size:12.5px;background:var(--bg);color:var(--text)}
+.modal input:focus,.modal textarea:focus,.modal select:focus{outline:none;border-color:var(--blue-soft)}
+.modal textarea{resize:vertical;min-height:52px;line-height:1.45}
+.modal-actions{display:flex;gap:8px;margin-top:16px;justify-content:flex-end;flex-wrap:wrap}
+.cols{display:flex;gap:8px;flex-wrap:wrap}
+.cols>div{flex:1;min-width:120px}
+.hint{font-size:10.5px;color:var(--faint);margin-top:3px;line-height:1.4}
+.flagpick{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
+.flagpick button{font:inherit;font-size:11.5px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+.flagpick button.on{background:var(--amber-wash);border-color:var(--amber);color:var(--amber-ink);font-weight:600}
+.subhead{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:16px 0 4px;padding-top:12px;border-top:1px solid var(--border-soft)}
+
+/* inner spans that need to stack */
+.cp-body,.cp-name,.cp-meta,.doc-body,.doc-title,.doc-sub,.res-main,.res-name,.res-path{display:block}
+.map-wrap>#map{height:100%;width:100%}
+.doc-body,.res-main{min-width:0}
+.req-act .btn,.doc .btn{white-space:nowrap}
+
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--blue-deep);color:#fff;font-size:12.5px;padding:9px 16px;border-radius:var(--radius);box-shadow:var(--shadow-lg);transition:transform .18s;z-index:2000;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.err{background:var(--red);color:#fff}
+@media (max-width:560px){
+  .wrap{padding:10px}
+  .grid{grid-template-columns:1fr}
+  .detail-title{font-size:18px}
+  .map-wrap{height:320px}
+  header{padding-left:52px}
+}
+@media print{
+  header,#crumbs,.btn,.edit-dot,.map-bar{display:none!important}
+  body{overflow:visible;height:auto}
+  main{overflow:visible}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 onclick="go('#/')">Sub Intel <span class="ver">v2.0</span></h1>
+  <input id="search" type="text" placeholder="search everything — subs, gate codes, benchmarks, requirements…" autocomplete="off">
+  <span class="spacer"></span>
+  <span class="count-note" id="countNote"></span>
+  <button class="btn btn-icon" onclick="toggleTheme()" title="light / dark">◐</button>
+  <button class="btn btn-icon" onclick="openDataModal()" title="import / export">⇅</button>
+  <button class="btn btn-primary" id="addBtn" onclick="contextAdd()">+ Add</button>
+</header>
+
+<div id="crumbs"></div>
+
+<main><div class="wrap" id="view"></div></main>
+
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+'use strict';
+/* ══════════════════════════════════════════════════════════════════
+   Sub Intel v2 — a browsable library of everything we know about a
+   subdivision, filed City → Jurisdiction → Subdivision.
+
+   Everything lives in localStorage under subIntelDB. Documents are
+   links, never uploads, so the store stays small and the share drive
+   stays the single source of truth for the files themselves.
+   ══════════════════════════════════════════════════════════════════ */
+const DB_KEY='subIntelDB';
+const DISPATCH_KEY='dispatchDB9';   // read-only neighbour: the dispatch library
+const THEME_KEY='subIntelTheme';
+
+let DB={version:3,cities:[],jurs:[],subs:[]};
+let route={v:'home'};
+let searchQ='';
+let mapState={map:null,layer:null,pickMode:null,showNear:true};
+
+/* ── requirement flags: the icons that show on a card at a glance ── */
+const FLAGS=[
+  {k:'gate',   i:'🔒', l:'Gated',            d:'Gate code or call box to get in'},
+  {k:'notify', i:'📞', l:'Notify first',     d:'Call the super/inspector before entering'},
+  {k:'orient', i:'🪪', l:'Orientation',      d:'Site orientation or badge required'},
+  {k:'permit', i:'📋', l:'Permit',           d:'Permit / ROW authorization before work'},
+  {k:'ppe',    i:'🦺', l:'Full PPE',         d:'Hard hat, vest, glasses, boots enforced'},
+  {k:'hours',  i:'🕖', l:'Hour limits',      d:'Restricted work window'},
+  {k:'escort', i:'🚧', l:'Escort',           d:'Escort or flagger required on site'},
+  {k:'mud',    i:'💧', l:'District',         d:'MUD / utility district requirements'},
+  {k:'flood',  i:'🌊', l:'Floodplain',       d:'Floodplain, LOMR or elevation cert work'},
+  {k:'tree',   i:'🌳', l:'Tree rules',       d:'Tree survey / protection ordinance'},
+  {k:'rail',   i:'🚂', l:'Railroad',         d:'Railroad ROW — flagging / permit'},
+  {k:'state',  i:'🛣️', l:'State ROW',        d:'DOT / state ROW permit needed'},
+  {k:'gps',    i:'🛰️', l:'RTN quirk',        d:'Poor RTN coverage / canopy — plan control'},
+  {k:'dog',    i:'🐕', l:'Loose dogs',       d:'Dogs or livestock on site'},
+  {k:'mudrd',  i:'🛻', l:'4WD',              d:'4WD / gets impassable when wet'},
+  {k:'water',  i:'🚤', l:'Water access',     d:'Boat, wading or tidal access involved'}
+];
+const FLAG=Object.fromEntries(FLAGS.map(f=>[f.k,f]));
+
+const DOC_KINDS=[
+  {k:'spec',    i:'📘', l:'Spec / standard'},
+  {k:'plat',    i:'🗺️', l:'Plat / recorded map'},
+  {k:'bm',      i:'📍', l:'Benchmark datasheet'},
+  {k:'permit',  i:'📋', l:'Permit / application'},
+  {k:'plan',    i:'📐', l:'Plan set'},
+  {k:'form',    i:'📝', l:'Form / checklist'},
+  {k:'contact', i:'📇', l:'Contact sheet'},
+  {k:'other',   i:'📄', l:'Other'}
+];
+const DOC_KIND=Object.fromEntries(DOC_KINDS.map(d=>[d.k,d]));
+
+const JUR_KINDS=[
+  {k:'county',  l:'County'},
+  {k:'city',    l:'City / municipality'},
+  {k:'etj',     l:'ETJ / unincorporated'},
+  {k:'mud',     l:'MUD / district'},
+  {k:'other',   l:'Other authority'}
+];
+
+/* ── tiny helpers ── */
+const uid=()=>Math.random().toString(36).slice(2,10);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const normKey=n=>(n||'').trim().toLowerCase();
+const flat=s=>String(s??'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const num=v=>{const n=parseFloat(v);return Number.isFinite(n)?n:null;};
+const val=id=>document.getElementById(id).value.trim();
+const el=id=>document.getElementById(id);
+const hasCoords=o=>o&&o.lat!=null&&o.lon!=null;
+
+function toast(msg,err){
+  const t=el('toast');
+  t.textContent=msg;t.className=err?'err show':'show';
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2300);
+}
+function copy(text,label){
+  navigator.clipboard?.writeText(text).then(()=>toast((label||'copied')+' copied'),()=>toast('copy failed',1));
+}
+/* miles between two lat/lons — haversine, good enough for "is it nearby" */
+function distMi(a,b,c,d){
+  const R=3958.8,r=Math.PI/180;
+  const dLa=(c-a)*r,dLo=(d-b)*r;
+  const s=Math.sin(dLa/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+
+/* ── storage ── */
+function dispatchSubs(){
+  try{
+    const d=JSON.parse(localStorage.getItem(DISPATCH_KEY)||'{}');
+    if(Array.isArray(d.subs))return d.subs.map(s=>({name:s.name,lat:num(s.lat),lon:num(s.lon)}));
+  }catch(e){}
+  return [];
+}
+function save(){
+  try{localStorage.setItem(DB_KEY,JSON.stringify(DB));}
+  catch(e){console.error(e);toast('save failed — storage full?',1);}
+}
+function load(){
+  let raw=null;
+  try{raw=localStorage.getItem(DB_KEY);}catch(e){}
+  if(raw){
+    try{
+      const d=JSON.parse(raw);
+      if(d&&typeof d==='object')DB=migrate(d);
+    }catch(e){console.error(e);toast('could not read saved data',1);}
+  }
+  DB.cities||=[];DB.jurs||=[];DB.subs||=[];
+  for(const s of DB.subs){s.reqs||=[];s.docs||=[];s.points||=[];s.flags||=[];s.crs||={};}
+  for(const j of DB.jurs){j.reqs||=[];j.docs||=[];j.flags||=[];j.crs||={};}
+}
+/* v1/v2 (a flat card wall keyed by sub name) → v3 (the filed library).
+   Old intel is never dropped: it lands under "Unfiled" for you to move. */
+function migrate(d){
+  if(d.version>=3)return d;
+  const out={version:3,cities:[],jurs:[],subs:[]};
+  const city={id:uid(),name:'Unfiled',state:'',notes:'Imported from Sub Intel v1 — drag these into real cities as you go.'};
+  const jur={id:uid(),cityId:city.id,name:'Unassigned jurisdiction',kind:'other',crs:{},reqs:[],docs:[],flags:[],notes:''};
+  const oldSubs=Array.isArray(d.subs)?d.subs:[];
+  const intel=d.intel||{};
+  const seen=new Set();
+  const push=(name,lat,lon)=>{
+    const k=normKey(name);
+    if(!name||seen.has(k))return;
+    seen.add(k);
+    const it=intel[k]||{};
+    out.subs.push({
+      id:uid(),jurId:jur.id,name,lat:num(lat),lon:num(lon),
+      gate:it.gate||'',superName:it.superName||'',superPhone:it.superPhone||'',
+      builder:it.builder||'',access:it.access||'',notes:it.notes||'',
+      benchmark:it.benchmark||'',crs:{},flags:it.gate?['gate']:[],
+      reqs:[],docs:[],points:[],updatedAt:it.updatedAt||Date.now()
+    });
+  };
+  for(const s of oldSubs)push(s.name,s.lat,s.lon);
+  for(const s of (d.manualSubs||[]))push(s.name,null,null);
+  for(const k of Object.keys(intel))if(!seen.has(k))push(k,null,null);
+  if(out.subs.length){out.cities.push(city);out.jurs.push(jur);}
+  return out;
+}
+
+/* ── lookups ── */
+const city=id=>DB.cities.find(c=>c.id===id)||null;
+const jur =id=>DB.jurs.find(j=>j.id===id)||null;
+const sub =id=>DB.subs.find(s=>s.id===id)||null;
+const jursIn=cityId=>DB.jurs.filter(j=>j.cityId===cityId).sort(byName);
+const subsIn=jurId=>DB.subs.filter(s=>s.jurId===jurId).sort(byName);
+const subsInCity=cityId=>{const ids=new Set(jursIn(cityId).map(j=>j.id));return DB.subs.filter(s=>ids.has(s.jurId));};
+function byName(a,b){return a.name.localeCompare(b.name,undefined,{numeric:true});}
+function pathOf(s){
+  const j=jur(s.jurId),c=j?city(j.cityId):null;
+  return [c?c.name:'—',j?j.name:'—'].join(' › ');
+}
+/* a sub's effective coordinate system: its own fields, else the jurisdiction's */
+const CRS_FIELDS=[
+  ['system','Coordinate system'],['hDatum','Horizontal datum'],['vDatum','Vertical datum'],
+  ['units','Units'],['csf','Combined factor'],['geoid','Geoid model'],['note','Control notes']
+];
+function effCrs(s){
+  const j=jur(s.jurId)||{crs:{}};
+  const out={};
+  for(const [k] of CRS_FIELDS){
+    const own=(s.crs||{})[k];
+    if(own){out[k]={v:own,from:null};}
+    else if((j.crs||{})[k]){out[k]={v:j.crs[k],from:j.name};}
+  }
+  return out;
+}
+/* flags shown on a sub = its own + the ones its jurisdiction sets for everything under it */
+function effFlags(s){
+  const j=jur(s.jurId);
+  const own=new Set(s.flags||[]);
+  const inh=(j?.flags||[]).filter(k=>!own.has(k));
+  return {own:[...own],inherited:inh};
+}
+function allPoints(){
+  const out=[];
+  for(const s of DB.subs)for(const p of (s.points||[]))out.push({p,s});
+  return out;
+}
+function countIntel(s){
+  return (s.gate?1:0)+(s.superName||s.superPhone?1:0)+(s.access?1:0)+(s.notes?1:0)+
+         (s.benchmark?1:0)+(s.flags||[]).length+(s.reqs||[]).length+(s.docs||[]).length+(s.points||[]).length;
+}
+
+/* ══════════════════ routing ══════════════════
+   #/            cities
+   #/c/<id>      jurisdictions in a city
+   #/j/<id>      subs in a jurisdiction
+   #/s/<id>      one subdivision, everything we know
+   ═══════════════════════════════════════════ */
+function go(h){if(location.hash===h)readRoute();else location.hash=h;}
+function readRoute(){
+  const h=(location.hash||'#/').replace(/^#/,'');
+  const [,kind,id]=h.split('/');
+  if(kind==='c'&&city(id))route={v:'city',id};
+  else if(kind==='j'&&jur(id))route={v:'jur',id};
+  else if(kind==='s'&&sub(id))route={v:'sub',id};
+  else route={v:'home'};
+  render();
+  document.querySelector('main').scrollTop=0;
+}
+window.addEventListener('hashchange',readRoute);
+
+function contextAdd(){
+  if(searchQ)return;
+  if(route.v==='home')editCity();
+  else if(route.v==='city')editJur(null,route.id);
+  else if(route.v==='jur')editSub(null,route.id);
+  else if(route.v==='sub')editPoint(null,route.id);
+}
+function addLabel(){
+  return {home:'+ City',city:'+ Jurisdiction',jur:'+ Subdivision',sub:'+ Control point'}[route.v]||'+ Add';
+}
+
+/* ══════════════════ render ══════════════════ */
+function render(){
+  el('addBtn').textContent=addLabel();
+  el('addBtn').style.display=searchQ?'none':'';
+  renderCrumbs();
+  const v=el('view');
+  if(searchQ){v.innerHTML=searchView();wireCards();return;}
+  // the record can vanish underneath a view (a delete, an import) — fall home
+  const rec=route.v==='city'?city(route.id):route.v==='jur'?jur(route.id):route.v==='sub'?sub(route.id):true;
+  if(!rec)route={v:'home'};
+  if(route.v==='home')v.innerHTML=homeView();
+  else if(route.v==='city')v.innerHTML=cityView(rec);
+  else if(route.v==='jur')v.innerHTML=jurView(rec);
+  else if(route.v==='sub'){v.innerHTML=subView(rec);mountSubMap(rec);}
+  wireCards();
+  el('countNote').textContent=`${DB.subs.length} subs · ${DB.jurs.length} jurisdictions · ${allPoints().length} control pts`;
+}
+function renderCrumbs(){
+  const c=el('crumbs');
+  const parts=[`<a onclick="go('#/')">All cities</a>`];
+  if(searchQ){parts.push(`<span class="sep">›</span><span class="here">search “${esc(searchQ)}”</span>`);}
+  else if(route.v==='city'){const x=city(route.id);parts.push(`<span class="sep">›</span><span class="here">${esc(x.name)}</span>`);}
+  else if(route.v==='jur'){
+    const j=jur(route.id),x=city(j.cityId);
+    if(x)parts.push(`<span class="sep">›</span><a onclick="go('#/c/${x.id}')">${esc(x.name)}</a>`);
+    parts.push(`<span class="sep">›</span><span class="here">${esc(j.name)}</span>`);
+  }else if(route.v==='sub'){
+    const s=sub(route.id),j=jur(s.jurId),x=j?city(j.cityId):null;
+    if(x)parts.push(`<span class="sep">›</span><a onclick="go('#/c/${x.id}')">${esc(x.name)}</a>`);
+    if(j)parts.push(`<span class="sep">›</span><a onclick="go('#/j/${j.id}')">${esc(j.name)}</a>`);
+    parts.push(`<span class="sep">›</span><span class="here">${esc(s.name)}</span>`);
+  }
+  c.innerHTML=parts.join('');
+}
+function wireCards(){
+  document.querySelectorAll('[data-go]').forEach(n=>n.addEventListener('click',e=>{
+    if(e.target.closest('[data-stop]'))return;
+    go(n.dataset.go);
+  }));
+  document.querySelectorAll('[data-copy]').forEach(n=>n.addEventListener('click',e=>{
+    e.stopPropagation();copy(n.dataset.copy,n.dataset.copyLabel||'');
+  }));
+}
+
+function flagRow(keys,cls){
+  if(!keys.length)return '';
+  return `<div class="flags">${keys.map(k=>{
+    const f=FLAG[k];if(!f)return '';
+    return `<span class="flag ${cls||''}" title="${esc(f.d)}"><span>${f.i}</span><span class="fl">${esc(f.l)}</span></span>`;
+  }).join('')}</div>`;
+}
+
+/* ── landing: one card per city ── */
+function homeView(){
+  if(!DB.cities.length)return `<div class="grid"><div class="empty-hint">
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Nothing filed yet</div>
+      Sub Intel files what we know by <b>city → county or municipality → subdivision</b>.<br>
+      Start with a city, or load a worked example to see the shape of it.<br><br>
+      <button class="btn btn-primary" onclick="editCity()">+ Add a city</button>
+      <button class="btn" onclick="loadDemo()">load example data</button>
+    </div></div>`;
+  const cards=DB.cities.slice().sort(byName).map(c=>{
+    const js=jursIn(c.id),ss=subsInCity(c.id);
+    const pts=ss.reduce((n,s)=>n+(s.points||[]).length,0);
+    return `<div class="card" data-go="#/c/${c.id}">
+      <span class="edit-dot" data-stop onclick="event.stopPropagation();editCity(${q(c.id)})">edit</span>
+      <div class="card-title">${esc(c.name)}${c.state?`<span class="kind">${esc(c.state)}</span>`:''}</div>
+      ${c.notes?`<div class="card-meta">${esc(c.notes)}</div>`:''}
+      <div class="card-stat">
+        <span><b>${js.length}</b>jurisdictions</span>
+        <span><b>${ss.length}</b>subs</span>
+        <span><b>${pts}</b>control</span>
+      </div></div>`;
+  }).join('');
+  return `<div class="view-head"><div><div class="view-title">Cities</div>
+    <div class="view-sub">${DB.cities.length} filed · pick a city to see its counties and municipalities</div></div></div>
+    <div class="grid">${cards}</div>`;
+}
+
+/* ── a city: its counties / municipalities ── */
+function cityView(c){
+  const js=jursIn(c.id);
+  const cards=js.map(j=>{
+    const ss=subsIn(j.id);
+    const kindCls=j.kind==='county'?'county':j.kind==='city'?'city':j.kind==='mud'?'mud':'';
+    const kindL=(JUR_KINDS.find(k=>k.k===j.kind)||{l:''}).l;
+    return `<div class="card" data-go="#/j/${j.id}">
+      <span class="edit-dot" data-stop onclick="event.stopPropagation();editJur(${q(j.id)})">edit</span>
+      <div class="card-title">${esc(j.name)}${kindL?`<span class="kind ${kindCls}">${esc(kindL)}</span>`:''}</div>
+      ${j.crs?.system?`<div class="card-meta">${esc(j.crs.system)}</div>`:''}
+      <div class="card-stat">
+        <span><b>${ss.length}</b>subs</span>
+        <span><b>${(j.reqs||[]).length}</b>requirements</span>
+        <span><b>${(j.docs||[]).length}</b>documents</span>
+      </div>
+      ${flagRow(j.flags||[])}
+    </div>`;
+  }).join('');
+  return `<div class="view-head"><div><div class="view-title">${esc(c.name)}${c.state?`, ${esc(c.state)}`:''}</div>
+      <div class="view-sub">${js.length} jurisdictions · ${subsInCity(c.id).length} subdivisions</div></div>
+      <span class="spacer"></span>
+      <button class="btn" onclick="editCity(${q(c.id)})">edit city</button>
+      <button class="btn btn-primary" onclick="editJur(null,${q(c.id)})">+ Jurisdiction</button></div>
+    ${c.notes?`<div class="panel"><div class="panel-body"><div class="note-box">${esc(c.notes)}</div></div></div>`:''}
+    ${js.length?`<div class="grid">${cards}</div>`
+      :`<div class="grid"><div class="empty-hint">No county or municipality filed under ${esc(c.name)} yet.<br><br>
+        <button class="btn btn-primary" onclick="editJur(null,${q(c.id)})">+ Add one</button></div></div>`}`;
+}
+
+/* ── a jurisdiction: its requirements, docs, and the subs under it ── */
+function jurView(j){
+  const ss=subsIn(j.id);
+  const cards=ss.map(s=>subCard(s)).join('');
+  const crs=Object.entries(j.crs||{}).filter(([,v])=>v);
+  return `<div class="view-head"><div><div class="view-title">${esc(j.name)}</div>
+      <div class="view-sub">${esc((JUR_KINDS.find(k=>k.k===j.kind)||{l:'authority'}).l)} · ${ss.length} subdivisions</div></div>
+      <span class="spacer"></span>
+      <button class="btn" onclick="editJur(${q(j.id)})">edit</button>
+      <button class="btn btn-primary" onclick="editSub(null,${q(j.id)})">+ Subdivision</button></div>
+
+    ${crs.length?`<div class="panel"><div class="panel-head"><h3>Coordinate system</h3><span class="n">applies to every sub below unless overridden</span></div>
+      <div class="panel-body">${crsGrid(Object.fromEntries(crs.map(([k,v])=>[k,{v}])))}</div></div>`:''}
+
+    ${(j.flags||[]).length?`<div class="panel"><div class="panel-head"><h3>Applies jurisdiction-wide</h3></div>
+      <div class="panel-body">${flagRow(j.flags,'lg')}</div></div>`:''}
+
+    ${reqPanel(j.reqs||[],'Requirements','jur',j.id)}
+    ${docPanel(j.docs||[],'Documents to reference','jur',j.id)}
+    ${j.notes?`<div class="panel"><div class="panel-head"><h3>Notes</h3></div><div class="panel-body"><div class="note-box">${esc(j.notes)}</div></div></div>`:''}
+
+    <div class="view-head" style="margin-top:18px"><div class="view-title" style="font-size:15px">Subdivisions</div></div>
+    ${ss.length?`<div class="grid wide">${cards}</div>`
+      :`<div class="grid"><div class="empty-hint">No subdivisions filed under ${esc(j.name)} yet.<br><br>
+        <button class="btn btn-primary" onclick="editSub(null,${q(j.id)})">+ Add one</button></div></div>`}`;
+}
+
+function subCard(s){
+  const f=effFlags(s);
+  const filled=countIntel(s)>0;
+  return `<div class="card${filled?'':' empty-intel'}" data-go="#/s/${s.id}">
+    <span class="edit-dot" data-stop onclick="event.stopPropagation();editSub(${q(s.id)})">edit</span>
+    <div class="card-title">${esc(s.name)}</div>
+    ${s.builder?`<div class="card-meta">${esc(s.builder)}</div>`:''}
+    ${s.gate?`<div class="gate-row"><span class="gate-lbl">Gate</span>
+        <span class="gate-code" data-stop data-copy="${esc(s.gate)}" data-copy-label="gate code" title="click to copy">${esc(s.gate)}</span></div>`:''}
+    ${s.access?`<div class="warn-box">${esc(s.access)}</div>`:''}
+    ${flagRow(f.own)}${flagRow(f.inherited,'inherit')}
+    ${filled?`<div class="card-stat">
+        <span><b>${(s.points||[]).length}</b>control</span>
+        <span><b>${(s.reqs||[]).length}</b>reqs</span>
+        <span><b>${(s.docs||[]).length}</b>docs</span></div>`
+      :`<div class="empty-line" style="padding:8px 0 0">no intel yet — open it and fill it in</div>`}
+  </div>`;
+}
+const q=v=>v==null?'null':`'${String(v).replace(/'/g,"\\'")}'`;
+
+/* ══════════════════ the subdivision page ══════════════════
+   Reads top to bottom the way you need it in the truck:
+   who/how to get in → what the survey is on → what's required →
+   what to read → where the control is.
+   ════════════════════════════════════════════════════════ */
+function subView(s){
+  const j=jur(s.jurId),c=j?city(j.cityId):null;
+  const f=effFlags(s);
+  const crs=effCrs(s);
+  const inhReqs=(j?.reqs||[]).map(r=>({...r,_from:j.name}));
+  const inhDocs=(j?.docs||[]).map(d=>({...d,_from:j.name}));
+  const pts=(s.points||[]).slice().sort((a,b)=>(a.type===b.type?a.name.localeCompare(b.name):a.type==='BM'?-1:1));
+
+  return `<div class="detail-head">
+    <div class="detail-title">${esc(s.name)}</div>
+    <div class="detail-where">${esc(c?c.name:'—')} › ${esc(j?j.name:'—')}${s.builder?` · ${esc(s.builder)}`:''}</div>
+    ${s.gate?`<div class="gate-row"><span class="gate-lbl">Gate</span>
+      <span class="gate-code" data-copy="${esc(s.gate)}" data-copy-label="gate code" title="click to copy">${esc(s.gate)}</span></div>`:''}
+    ${s.access?`<div class="warn-box">${esc(s.access)}</div>`:''}
+    ${(s.superName||s.superPhone||s.contact)?`<div class="contact-row">
+      ${s.superName?`<div class="contact"><span class="lbl">Superintendent</span>${esc(s.superName)}</div>`:''}
+      ${s.superPhone?`<div class="contact"><span class="lbl">Phone</span><a href="tel:${esc(s.superPhone.replace(/[^\d+]/g,''))}">${esc(s.superPhone)}</a></div>`:''}
+      ${s.contact?`<div class="contact"><span class="lbl">Other contact</span>${esc(s.contact)}</div>`:''}
+    </div>`:''}
+    ${(f.own.length||f.inherited.length)?`<div style="margin-top:11px">${flagRow(f.own,'lg')}${flagRow(f.inherited,'lg inherit')}</div>`:''}
+    <div class="modal-actions" style="justify-content:flex-start;margin-top:13px">
+      <button class="btn" onclick="editSub(${q(s.id)})">edit intel</button>
+      <button class="btn" onclick="editReq(null,'sub',${q(s.id)})">+ requirement</button>
+      <button class="btn" onclick="editDoc(null,'sub',${q(s.id)})">+ document</button>
+      <button class="btn btn-primary" onclick="editPoint(null,${q(s.id)})">+ control point</button>
+      ${hasCoords(s)?`<a class="btn" href="https://www.google.com/maps?q=${s.lat},${s.lon}" target="_blank" rel="noopener">drive there ↗</a>`:''}
+    </div>
+  </div>
+
+  <div class="panel"><div class="panel-head"><h3>Coordinate system</h3>
+      <span class="n">${Object.values(crs).some(x=>x.from)?'italic values come from the jurisdiction':''}</span>
+      <span class="spacer"></span><button class="btn btn-sm" data-stop onclick="editCrs(${q(s.id)})">edit</button></div>
+    <div class="panel-body">${crsGrid(crs)}</div></div>
+
+  ${reqPanel([...(s.reqs||[]),...inhReqs],'Requirements','sub',s.id)}
+  ${docPanel([...(s.docs||[]),...inhDocs],'Documents to reference','sub',s.id)}
+
+  <div class="panel">
+    <div class="panel-head"><h3>Control</h3><span class="n">${pts.length} on file</span>
+      <span class="spacer"></span>
+      <button class="btn btn-sm" onclick="editPoint(null,${q(s.id)})">+ point</button></div>
+    <div class="map-bar">
+      <span class="chiprow">
+        <button class="chip on" id="chipBM" onclick="toggleLayer('BM')">📍 benchmarks</button>
+        <button class="chip on" id="chipTBM" onclick="toggleLayer('TBM')">🔶 our TBMs</button>
+        <button class="chip${mapState.showNear?' on':''}" id="chipNear" onclick="toggleNear()">nearby subs</button>
+      </span>
+      <span class="spacer"></span>
+      <button class="btn btn-sm" onclick="startPick(${q(s.id)})">📌 drop a point on the map</button>
+    </div>
+    <div class="map-wrap tall" id="mapWrap"><div id="map"></div></div>
+    ${pts.length?`<div>${pts.map(p=>cpRow(p,s)).join('')}</div>`
+      :`<div class="empty-line">No benchmarks or TBMs recorded here yet — add one, or drop a pin on the map.</div>`}
+  </div>
+
+  ${s.benchmark?`<div class="panel"><div class="panel-head"><h3>Benchmark notes</h3></div>
+    <div class="panel-body"><div class="note-box">${esc(s.benchmark)}</div></div></div>`:''}
+  ${s.notes?`<div class="panel"><div class="panel-head"><h3>Notes</h3></div>
+    <div class="panel-body"><div class="note-box">${esc(s.notes)}</div></div></div>`:''}
+  ${s.updatedAt?`<div class="view-sub" style="text-align:right;padding:0 2px 16px">last edited ${new Date(s.updatedAt).toLocaleDateString()}</div>`:''}`;
+}
+
+function crsGrid(crs){
+  const cells=CRS_FIELDS.map(([k,label])=>{
+    const x=crs[k];
+    return `<div class="crs-cell"><div class="lbl">${label}</div>
+      <div class="val ${k==='csf'?'mono':''} ${x?'':'none'}"${x?.from?` style="font-style:italic" title="from ${esc(x.from)}"`:''}>${x?esc(x.v):'not recorded'}</div></div>`;
+  }).join('');
+  return `<div class="crs-grid">${cells}</div>`;
+}
+
+function reqPanel(reqs,title,owner,ownerId){
+  const rows=reqs.map(r=>`<div class="req">
+      <span class="req-sev ${esc(r.sev||'')}"></span>
+      <div class="req-body">
+        <div class="req-title">${esc(r.title)}
+          ${r.sev&&r.sev!=='info'?`<span class="tag ${esc(r.sev)}">${esc(r.sev)}</span>`:''}
+          ${r._from?`<span class="tag src">${esc(r._from)}</span>`:''}</div>
+        ${r.detail?`<div class="req-detail">${esc(r.detail)}</div>`:''}
+      </div>
+      ${r._from?'':`<span class="req-act">
+        <button class="btn btn-sm" onclick="editReq(${q(r.id)},'${owner}',${q(ownerId)})">edit</button></span>`}
+    </div>`).join('');
+  return `<div class="panel"><div class="panel-head"><h3>${title}</h3><span class="n">${reqs.length}</span>
+      <span class="spacer"></span><button class="btn btn-sm" onclick="editReq(null,'${owner}',${q(ownerId)})">+ add</button></div>
+    <div class="panel-body flush">${rows||`<div class="empty-line">Nothing recorded yet.</div>`}</div></div>`;
+}
+
+function docPanel(docs,title,owner,ownerId){
+  const rows=docs.map(d=>{
+    const kind=DOC_KIND[d.kind]||DOC_KIND.other;
+    const inner=`<span class="doc-ico">${kind.i}</span>
+      <span class="doc-body"><span class="doc-title">${esc(d.title)}</span>
+        <span class="doc-sub">${esc(kind.l)}${d._from?` · ${esc(d._from)}`:''}${d.url?` · ${esc(d.url)}`:''}</span></span>
+      ${d._from?'':`<span class="req-act" data-stop><button class="btn btn-sm" onclick="event.preventDefault();event.stopPropagation();editDoc(${q(d.id)},'${owner}',${q(ownerId)})">edit</button></span>`}`;
+    return d.url
+      ? `<a class="doc" href="${esc(d.url)}" target="_blank" rel="noopener">${inner}</a>`
+      : `<div class="doc">${inner}</div>`;
+  }).join('');
+  return `<div class="panel"><div class="panel-head"><h3>${title}</h3><span class="n">${docs.length}</span>
+      <span class="spacer"></span><button class="btn btn-sm" onclick="editDoc(null,'${owner}',${q(ownerId)})">+ add</button></div>
+    <div class="panel-body flush">${rows||`<div class="empty-line">No documents linked yet — point these at the share drive or the county's site.</div>`}</div></div>`;
+}
+
+function cpRow(p,s){
+  return `<div class="cp" onclick="focusPoint(${q(p.id)})">
+    <span class="cp-badge ${p.type}">${p.type}</span>
+    <span class="cp-body">
+      <span class="cp-name">${esc(p.name)}${(p.docs||[]).length?` <span class="tag">${(p.docs||[]).length} doc${(p.docs||[]).length>1?'s':''}</span>`:''}</span>
+      <span class="cp-meta">${hasCoords(p)?`${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}`:'no coordinates'}${p.desc?` · ${esc(p.desc)}`:''}</span>
+    </span>
+    ${p.elev?`<span class="cp-elev">${esc(p.elev)}<small>${esc(p.elevDatum||'elev')}</small></span>`:''}
+    <span class="req-act" data-stop><button class="btn btn-sm" onclick="event.stopPropagation();editPoint(${q(p.id)},${q(s.id)})">edit</button></span>
+  </div>`;
+}
+
+/* ══════════════════ the map ══════════════════
+   Leaflet + OSM tiles. Pins are the control we care about: published
+   benchmarks (blue circles) and the TBMs we set (orange diamonds), plus
+   anything within NEAR_MI from the surrounding subs so you can see the
+   control you already have next door. Each pin carries its own documents.
+   ═══════════════════════════════════════════ */
+const NEAR_MI=3;
+const TILE='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_ATTR='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+mapState.show={BM:true,TBM:true};
+mapState.markers={};
+
+function pinIcon(type,near){
+  const cls=type==='TBM'?'tbm':type==='SUB'?'sub':'bm';
+  const label=type==='TBM'?'<span>T</span>':type==='SUB'?'':'B';
+  return L.divIcon({
+    className:'',
+    html:`<div class="pin ${cls}${near?' near':''}">${label}</div>`,
+    iconSize:type==='SUB'?[15,15]:[22,22],
+    iconAnchor:type==='SUB'?[7,7]:[11,11],
+    popupAnchor:[0,-12]
+  });
+}
+
+function mountSubMap(s){
+  const wrap=el('mapWrap');
+  if(!wrap)return;
+  mapState.markers={};
+  if(typeof L==='undefined'){
+    wrap.innerHTML=`<div class="map-fallback"><b>Map unavailable offline</b>
+      <span>Leaflet didn't load — the control list below still has every coordinate.</span></div>`;
+    return;
+  }
+  const own=(s.points||[]).filter(hasCoords);
+  const center=hasCoords(s)?[s.lat,s.lon]
+    :own.length?[own[0].lat,own[0].lon]:null;
+  if(!center&&!own.length){
+    wrap.innerHTML=`<div class="map-fallback"><b>No coordinates yet</b>
+      <span>Give the sub a lat/lon in <b>edit intel</b>, or drop a control point on the map.</span>
+      <button class="btn" onclick="editSub(${q(s.id)})">edit intel</button></div>`;
+    return;
+  }
+  wrap.innerHTML='<div id="map"></div>';
+  const map=L.map('map',{scrollWheelZoom:true}).setView(center||[own[0].lat,own[0].lon],16);
+  L.tileLayer(TILE,{maxZoom:19,attribution:TILE_ATTR}).addTo(map);
+  mapState.map=map;
+  mapState.subId=s.id;
+  const group=L.layerGroup().addTo(map);
+  mapState.layer=group;
+
+  const bounds=[];
+  if(hasCoords(s)){
+    L.marker([s.lat,s.lon],{icon:pinIcon('SUB'),zIndexOffset:-200})
+      .bindPopup(`<h4>${esc(s.name)}</h4><div class="pop-row"><span class="v">entrance / site point</span></div>`)
+      .addTo(group);
+    bounds.push([s.lat,s.lon]);
+  }
+  for(const p of own){
+    const m=L.marker([p.lat,p.lon],{icon:pinIcon(p.type)}).bindPopup(popupHtml(p,s,false),{maxWidth:280});
+    m._cpType=p.type;m._near=false;
+    m.addTo(group);
+    mapState.markers[p.id]=m;
+    bounds.push([p.lat,p.lon]);
+  }
+  if(mapState.showNear)addNearby(s,group,bounds);
+  if(bounds.length>1)map.fitBounds(bounds,{padding:[42,42],maxZoom:17});
+
+  map.on('click',e=>{
+    if(!mapState.pickMode)return;
+    const {lat,lng}=e.latlng;
+    const target=mapState.pickMode;
+    mapState.pickMode=null;
+    document.querySelectorAll('.map-hint').forEach(n=>n.remove());
+    editPoint(null,target,{lat:lat.toFixed(6),lon:lng.toFixed(6)});
+  });
+  setTimeout(()=>map.invalidateSize(),60);
+}
+
+function addNearby(s,group,bounds){
+  const ref=hasCoords(s)?[s.lat,s.lon]
+    :(s.points||[]).filter(hasCoords).map(p=>[p.lat,p.lon])[0];
+  if(!ref)return;
+  let n=0;
+  for(const {p,s:other} of allPoints()){
+    if(other.id===s.id||!hasCoords(p))continue;
+    if(distMi(ref[0],ref[1],p.lat,p.lon)>NEAR_MI)continue;
+    const m=L.marker([p.lat,p.lon],{icon:pinIcon(p.type,true),zIndexOffset:-100})
+      .bindPopup(popupHtml(p,other,true),{maxWidth:280});
+    m._cpType=p.type;m._near=true;
+    m.addTo(group);
+    mapState.markers[p.id]=m;
+    n++;
+  }
+  return n;
+}
+
+function popupHtml(p,owner,near){
+  const rows=[];
+  if(p.elev)rows.push(['Elev',`${esc(p.elev)} ${esc(p.elevDatum||'')}`]);
+  if(hasCoords(p))rows.push(['Coords',`${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}`]);
+  if(p.desig)rows.push(['PID/Desig',esc(p.desig)]);
+  if(p.setBy)rows.push(['Set by',esc(p.setBy)+(p.setOn?` · ${esc(p.setOn)}`:'')]);
+  else if(p.setOn)rows.push(['Date',esc(p.setOn)]);
+  const docs=(p.docs||[]).filter(d=>d.title);
+  return `<h4>${esc(p.name)} <span class="cp-badge ${p.type}">${p.type}</span></h4>
+    ${near?`<div class="pop-row"><span class="v" style="color:#696660">from ${esc(owner.name)}</span></div>`:''}
+    ${p.desc?`<div style="font-size:11.5px;color:#696660;margin:3px 0">${esc(p.desc)}</div>`:''}
+    ${rows.map(([l,v])=>`<div class="pop-row"><span class="lbl">${l}</span><span class="v">${v}</span></div>`).join('')}
+    ${docs.length?`<div class="pop-docs">${docs.map(d=>d.url
+        ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">${(DOC_KIND[d.kind]||DOC_KIND.other).i} ${esc(d.title)}</a>`
+        : `<span style="font-size:11.5px">${(DOC_KIND[d.kind]||DOC_KIND.other).i} ${esc(d.title)}</span>`).join('')}</div>`:''}
+    <div class="pop-act">
+      ${hasCoords(p)?`<button onclick="copy('${p.lat.toFixed(7)}, ${p.lon.toFixed(7)}','coordinates')">copy coords</button>
+      <a href="https://www.google.com/maps?q=${p.lat},${p.lon}" target="_blank" rel="noopener">navigate ↗</a>`:''}
+      ${near?`<button onclick="go('#/s/${owner.id}')">open sub</button>`
+            :`<button onclick="editPoint('${p.id}','${owner.id}')">edit</button>`}
+    </div>`;
+}
+
+function toggleLayer(type){
+  mapState.show[type]=!mapState.show[type];
+  el('chip'+type).classList.toggle('on',mapState.show[type]);
+  applyLayerFilter();
+}
+function applyLayerFilter(){
+  if(!mapState.layer)return;
+  mapState.layer.eachLayer(m=>{
+    if(!m._cpType)return;
+    const on=mapState.show[m._cpType]!==false&&(!m._near||mapState.showNear);
+    const node=m.getElement();
+    if(node)node.style.display=on?'':'none';
+  });
+}
+function toggleNear(){
+  mapState.showNear=!mapState.showNear;
+  el('chipNear').classList.toggle('on',mapState.showNear);
+  render();
+}
+function startPick(subId){
+  if(!mapState.map){toast('no map to pick on yet',1);return;}
+  mapState.pickMode=subId;
+  const hint=document.createElement('div');
+  hint.className='map-hint';
+  hint.textContent='click the map where the point is — Esc to cancel';
+  el('mapWrap').appendChild(hint);
+}
+function focusPoint(id){
+  const m=mapState.markers[id];
+  if(!m){toast('no coordinates on that point',1);return;}
+  mapState.map.setView(m.getLatLng(),18,{animate:true});
+  m.openPopup();
+  document.querySelector('.map-wrap')?.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+/* ══════════════════ editors ══════════════════ */
+function openModal(html,focusId){
+  el('modal').innerHTML=html;
+  el('modal').scrollTop=0;
+  el('overlay').classList.add('open');
+  if(focusId)setTimeout(()=>el(focusId)?.focus(),30);
+}
+function closeModal(){el('overlay').classList.remove('open');el('modal').innerHTML='';}
+el('overlay').addEventListener('click',e=>{if(e.target.id==='overlay')closeModal();});
+
+function actions(delFn,saveFn,delLabel){
+  return `<div class="modal-actions">
+    ${delFn?`<button class="btn btn-danger" style="margin-right:auto" onclick="${delFn}">${delLabel||'delete'}</button>`:''}
+    <button class="btn" onclick="closeModal()">cancel</button>
+    <button class="btn btn-primary" onclick="${saveFn}">save</button></div>`;
+}
+function flagPicker(selected){
+  return `<div class="flagpick" id="flagPick">${FLAGS.map(f=>
+    `<button type="button" class="${selected.includes(f.k)?'on':''}" data-flag="${f.k}" title="${esc(f.d)}"
+      onclick="this.classList.toggle('on')"><span>${f.i}</span>${esc(f.l)}</button>`).join('')}</div>`;
+}
+const pickedFlags=()=>[...document.querySelectorAll('#flagPick button.on')].map(b=>b.dataset.flag);
+function crsFields(crs,ph){
+  return `<div class="cols">
+      <div><label>Coordinate system</label><input type="text" id="cSystem" value="${esc(crs.system||'')}" placeholder="${esc(ph?.system||'e.g. TX South Central 4204')}"></div>
+      <div><label>Units</label><input type="text" id="cUnits" value="${esc(crs.units||'')}" placeholder="${esc(ph?.units||'US survey feet')}"></div>
+    </div>
+    <div class="cols">
+      <div><label>Horizontal datum</label><input type="text" id="cHDatum" value="${esc(crs.hDatum||'')}" placeholder="${esc(ph?.hDatum||'NAD83(2011) epoch 2010.00')}"></div>
+      <div><label>Vertical datum</label><input type="text" id="cVDatum" value="${esc(crs.vDatum||'')}" placeholder="${esc(ph?.vDatum||'NAVD88')}"></div>
+    </div>
+    <div class="cols">
+      <div><label>Geoid model</label><input type="text" id="cGeoid" value="${esc(crs.geoid||'')}" placeholder="${esc(ph?.geoid||'GEOID18')}"></div>
+      <div><label>Combined factor</label><input type="text" id="cCsf" value="${esc(crs.csf||'')}" placeholder="${esc(ph?.csf||'0.99988123')}"></div>
+    </div>
+    <label>Control notes</label>
+    <textarea id="cNote" placeholder="site calibration, which BMs the job is held on, surface vs grid…">${esc(crs.note||'')}</textarea>`;
+}
+function readCrs(){
+  const c={system:val('cSystem'),units:val('cUnits'),hDatum:val('cHDatum'),vDatum:val('cVDatum'),
+           geoid:val('cGeoid'),csf:val('cCsf'),note:val('cNote')};
+  for(const k of Object.keys(c))if(!c[k])delete c[k];
+  return c;
+}
+
+/* ── city ── */
+let editing=null;
+function editCity(id){
+  const c=id?city(id):null;editing=c;
+  openModal(`<h2>${c?'Edit city':'New city'}</h2>
+    <div class="sub-meta">The top folder — a metro or service area, not necessarily an incorporated city.</div>
+    <div class="cols">
+      <div><label>Name</label><input type="text" id="fName" value="${esc(c?.name||'')}" placeholder="e.g. Houston"></div>
+      <div style="max-width:100px"><label>State</label><input type="text" id="fState" value="${esc(c?.state||'')}" placeholder="TX"></div>
+    </div>
+    <label>Notes</label>
+    <textarea id="fNotes" placeholder="who we work for here, area quirks…">${esc(c?.notes||'')}</textarea>
+    ${actions(c?`delCity('${c.id}')`:'','saveCity()')}`,'fName');
+}
+function saveCity(){
+  const name=val('fName');
+  if(!name)return toast('name required',1);
+  if(editing){Object.assign(editing,{name,state:val('fState'),notes:val('fNotes')});}
+  else{
+    const c={id:uid(),name,state:val('fState'),notes:val('fNotes')};
+    DB.cities.push(c);
+  }
+  save();closeModal();render();
+}
+function delCity(id){
+  const js=jursIn(id);
+  const n=js.reduce((a,j)=>a+subsIn(j.id).length,0);
+  if(!confirm(`Delete "${city(id).name}" with ${js.length} jurisdictions and ${n} subdivisions? This cannot be undone.`))return;
+  const jIds=new Set(js.map(j=>j.id));
+  DB.subs=DB.subs.filter(s=>!jIds.has(s.jurId));
+  DB.jurs=DB.jurs.filter(j=>j.cityId!==id);
+  DB.cities=DB.cities.filter(c=>c.id!==id);
+  save();closeModal();go('#/');
+}
+
+/* ── jurisdiction ── */
+function editJur(id,cityId){
+  const j=id?jur(id):null;editing=j;
+  const cid=j?j.cityId:cityId;
+  openModal(`<h2>${j?'Edit jurisdiction':'New jurisdiction'}</h2>
+    <div class="sub-meta">Requirements, documents and the coordinate system set here apply to every subdivision filed under it.</div>
+    <div class="cols">
+      <div><label>Name</label><input type="text" id="fName" value="${esc(j?.name||'')}" placeholder="e.g. Harris County, City of Katy"></div>
+      <div style="max-width:170px"><label>Type</label><select id="fKind">
+        ${JUR_KINDS.map(k=>`<option value="${k.k}"${j?.kind===k.k?' selected':''}>${k.l}</option>`).join('')}
+      </select></div>
+    </div>
+    <label>City / folder</label>
+    <select id="fCity">${DB.cities.slice().sort(byName).map(c=>
+      `<option value="${c.id}"${c.id===cid?' selected':''}>${esc(c.name)}</option>`).join('')}</select>
+    <div class="subhead">Applies to everything under it</div>
+    ${flagPicker(j?.flags||[])}
+    <div class="subhead">Coordinate system</div>
+    ${crsFields(j?.crs||{})}
+    <div class="subhead">Notes</div>
+    <textarea id="fNotes" placeholder="review timelines, who to submit to, plan-check quirks…">${esc(j?.notes||'')}</textarea>
+    ${actions(j?`delJur('${j.id}')`:'','saveJur()')}`,'fName');
+}
+function saveJur(){
+  const name=val('fName');
+  if(!name)return toast('name required',1);
+  const data={name,kind:el('fKind').value,cityId:el('fCity').value,flags:pickedFlags(),crs:readCrs(),notes:val('fNotes')};
+  if(editing)Object.assign(editing,data);
+  else DB.jurs.push({id:uid(),reqs:[],docs:[],...data});
+  save();closeModal();render();
+}
+function delJur(id){
+  const ss=subsIn(id);
+  if(!confirm(`Delete "${jur(id).name}" and its ${ss.length} subdivisions? This cannot be undone.`))return;
+  const cid=jur(id).cityId;
+  DB.subs=DB.subs.filter(s=>s.jurId!==id);
+  DB.jurs=DB.jurs.filter(j=>j.id!==id);
+  save();closeModal();go('#/c/'+cid);
+}
+
+/* ── subdivision ── */
+function editSub(id,jurId){
+  const s=id?sub(id):null;editing=s;
+  const jid=s?s.jurId:jurId;
+  const dispatch=dispatchSubs().filter(d=>!DB.subs.some(x=>normKey(x.name)===normKey(d.name)));
+  openModal(`<h2>${s?esc(s.name):'New subdivision'}</h2>
+    <div class="sub-meta">${s?'The intel a crew needs at the entrance.':'Names autocomplete from the dispatch library and bring their coordinates across.'}</div>
+    <label>Name</label>
+    <input type="text" id="fName" value="${esc(s?.name||'')}" placeholder="subdivision name" list="dispatchList" oninput="maybeLinkCoords()">
+    <datalist id="dispatchList">${dispatch.map(d=>`<option value="${esc(d.name)}">`).join('')}</datalist>
+    <label>Jurisdiction</label>
+    <select id="fJur">${DB.jurs.slice().sort(byName).map(j=>{
+      const c=city(j.cityId);
+      return `<option value="${j.id}"${j.id===jid?' selected':''}>${esc(c?c.name+' › ':'')}${esc(j.name)}</option>`;
+    }).join('')}</select>
+    <div class="cols">
+      <div><label>Latitude</label><input type="text" id="fLat" value="${s?.lat??''}" placeholder="29.7604"></div>
+      <div><label>Longitude</label><input type="text" id="fLon" value="${s?.lon??''}" placeholder="-95.3698"></div>
+    </div>
+    <div class="hint">Entrance or site centroid — this is what centers the map and the “nearby control” search.</div>
+    <label>Gate code</label>
+    <input type="text" id="fGate" value="${esc(s?.gate||'')}" placeholder="#1234 / call box / none">
+    <div class="cols">
+      <div><label>Superintendent</label><input type="text" id="fSuper" value="${esc(s?.superName||'')}" placeholder="name"></div>
+      <div><label>Super phone</label><input type="tel" id="fPhone" value="${esc(s?.superPhone||'')}" placeholder="555-555-5555"></div>
+    </div>
+    <div class="cols">
+      <div><label>Builder(s)</label><input type="text" id="fBuilder" value="${esc(s?.builder||'')}" placeholder="Lennar, Taylor Morrison"></div>
+      <div><label>Other contact</label><input type="text" id="fContact" value="${esc(s?.contact||'')}" placeholder="inspector, HOA, guard shack"></div>
+    </div>
+    <label>Access warning — shown highlighted</label>
+    <input type="text" id="fAccess" value="${esc(s?.access||'')}" placeholder="call super before entering · no entry before 7am">
+    <div class="subhead">What this sub requires</div>
+    ${flagPicker(s?.flags||[])}
+    <div class="subhead">Benchmark notes</div>
+    <textarea id="fBenchmark" placeholder="where the BMs are, datum quirks, what the job is held on…">${esc(s?.benchmark||'')}</textarea>
+    <div class="subhead">Notes</div>
+    <textarea id="fNotes" placeholder="lot numbering quirks, parking, where it turns to mud…">${esc(s?.notes||'')}</textarea>
+    ${actions(s?`delSub('${s.id}')`:'','saveSub()')}`,'fName');
+}
+function maybeLinkCoords(){
+  if(editing)return;
+  const m=dispatchSubs().find(d=>normKey(d.name)===normKey(val('fName')));
+  if(m&&m.lat!=null&&!val('fLat')){el('fLat').value=m.lat;el('fLon').value=m.lon;toast('coordinates linked from dispatch');}
+}
+function saveSub(){
+  const name=val('fName');
+  if(!name)return toast('name required',1);
+  const jid=el('fJur').value;
+  if(!jid)return toast('add a jurisdiction first',1);
+  const dupe=DB.subs.find(s=>normKey(s.name)===normKey(name)&&s.jurId===jid&&s!==editing);
+  if(dupe)return toast('that sub already exists here',1);
+  const data={
+    name,jurId:jid,lat:num(val('fLat')),lon:num(val('fLon')),
+    gate:val('fGate'),superName:val('fSuper'),superPhone:val('fPhone'),
+    builder:val('fBuilder'),contact:val('fContact'),access:val('fAccess'),
+    flags:pickedFlags(),benchmark:val('fBenchmark'),notes:val('fNotes'),updatedAt:Date.now()
+  };
+  if(editing)Object.assign(editing,data);
+  else{
+    const s={id:uid(),crs:{},reqs:[],docs:[],points:[],...data};
+    DB.subs.push(s);
+    save();closeModal();return go('#/s/'+s.id);
+  }
+  save();closeModal();render();
+}
+function delSub(id){
+  const s=sub(id);
+  if(!confirm(`Delete "${s.name}" with its ${(s.points||[]).length} control points and everything filed on it?`))return;
+  const jid=s.jurId;
+  DB.subs=DB.subs.filter(x=>x.id!==id);
+  save();closeModal();go('#/j/'+jid);
+}
+
+/* ── per-sub coordinate system override ── */
+function editCrs(id){
+  const s=sub(id);editing=s;
+  const j=jur(s.jurId);
+  openModal(`<h2>Coordinate system — ${esc(s.name)}</h2>
+    <div class="sub-meta">Leave a field blank to inherit ${j?esc(j.name)+"'s":'the jurisdiction'} value.</div>
+    ${crsFields(s.crs||{},j?.crs||{})}
+    ${actions('','saveCrs()')}`,'cSystem');
+}
+function saveCrs(){
+  editing.crs=readCrs();
+  editing.updatedAt=Date.now();
+  save();closeModal();render();
+}
+
+/* ── requirements & documents hang off either a jurisdiction or a sub ── */
+const ownerOf=(kind,id)=>kind==='jur'?jur(id):sub(id);
+let ownerCtx=null;
+
+function editReq(reqId,kind,ownerId){
+  const o=ownerOf(kind,ownerId);
+  if(!o)return;
+  ownerCtx={kind,id:ownerId};
+  const r=reqId?(o.reqs||[]).find(x=>x.id===reqId):null;
+  editing=r;
+  openModal(`<h2>${r?'Edit requirement':'New requirement'}</h2>
+    <div class="sub-meta">On ${esc(o.name)}${kind==='jur'?' — inherited by every sub under it':''}</div>
+    <label>Requirement</label>
+    <input type="text" id="fTitle" value="${esc(r?.title||'')}" placeholder="e.g. 48-hour notice to the county inspector">
+    <label>Level</label>
+    <select id="fSev">
+      <option value="info"${r?.sev==='info'||!r?' selected':''}>Good to know</option>
+      <option value="required"${r?.sev==='required'?' selected':''}>Required</option>
+      <option value="critical"${r?.sev==='critical'?' selected':''}>Critical — will stop the job</option>
+    </select>
+    <label>Detail</label>
+    <textarea id="fDetail" placeholder="who, what form, how long it takes, what happens if you skip it…">${esc(r?.detail||'')}</textarea>
+    ${actions(r?`delReq('${r.id}')`:'','saveReq()')}`,'fTitle');
+}
+function saveReq(){
+  const title=val('fTitle');
+  if(!title)return toast('requirement text required',1);
+  const o=ownerOf(ownerCtx.kind,ownerCtx.id);
+  o.reqs||=[];
+  const data={title,sev:el('fSev').value,detail:val('fDetail')};
+  if(editing)Object.assign(editing,data);
+  else o.reqs.push({id:uid(),...data});
+  o.updatedAt=Date.now();
+  save();closeModal();render();
+}
+function delReq(id){
+  const o=ownerOf(ownerCtx.kind,ownerCtx.id);
+  o.reqs=(o.reqs||[]).filter(r=>r.id!==id);
+  save();closeModal();render();
+}
+
+function editDoc(docId,kind,ownerId){
+  const o=ownerOf(kind,ownerId);
+  if(!o)return;
+  ownerCtx={kind,id:ownerId};
+  const d=docId?(o.docs||[]).find(x=>x.id===docId):null;
+  editing=d;
+  openModal(`<h2>${d?'Edit document':'Link a document'}</h2>
+    <div class="sub-meta">On ${esc(o.name)}${kind==='jur'?' — shown on every sub under it':''}. Documents are links, so the share drive stays the one copy.</div>
+    <label>Title</label>
+    <input type="text" id="fTitle" value="${esc(d?.title||'')}" placeholder="e.g. Harris County construction standards, 2024">
+    <label>Kind</label>
+    <select id="fKind">${DOC_KINDS.map(k=>`<option value="${k.k}"${d?.kind===k.k?' selected':''}>${k.i} ${k.l}</option>`).join('')}</select>
+    <label>Link</label>
+    <input type="url" id="fUrl" value="${esc(d?.url||'')}" placeholder="https://… or file:///V:/Standards/…">
+    <div class="hint">A network path works too — paste it as <code>file:///V:/path/to/file.pdf</code>. Some browsers block file links clicked from a web page; opening this tool from the same drive avoids that.</div>
+    ${actions(d?`delDoc('${d.id}')`:'','saveDoc()')}`,'fTitle');
+}
+function saveDoc(){
+  const title=val('fTitle');
+  if(!title)return toast('title required',1);
+  const o=ownerOf(ownerCtx.kind,ownerCtx.id);
+  o.docs||=[];
+  const data={title,kind:el('fKind').value,url:val('fUrl')};
+  if(editing)Object.assign(editing,data);
+  else o.docs.push({id:uid(),...data});
+  o.updatedAt=Date.now();
+  save();closeModal();render();
+}
+function delDoc(id){
+  const o=ownerOf(ownerCtx.kind,ownerCtx.id);
+  o.docs=(o.docs||[]).filter(d=>d.id!==id);
+  save();closeModal();render();
+}
+
+/* ── control points: benchmarks we found, TBMs we set, with their docs ── */
+let ptDocs=[];
+function editPoint(pointId,subId,preset){
+  const s=sub(subId);
+  if(!s)return toast('pick a subdivision first',1);
+  ownerCtx={kind:'sub',id:subId};
+  const p=pointId?(s.points||[]).find(x=>x.id===pointId):null;
+  editing=p;
+  ptDocs=(p?.docs||[]).map(d=>({...d}));
+  openModal(`<h2>${p?'Edit control point':'New control point'}</h2>
+    <div class="sub-meta">On ${esc(s.name)}</div>
+    <div class="cols">
+      <div style="max-width:150px"><label>Type</label><select id="fType">
+        <option value="BM"${p?.type==='BM'||!p?' selected':''}>BM — published/found</option>
+        <option value="TBM"${p?.type==='TBM'?' selected':''}>TBM — we set it</option>
+      </select></div>
+      <div><label>Name / number</label><input type="text" id="fName" value="${esc(p?.name||'')}" placeholder="TBM-1, BM 4327, CP 101"></div>
+    </div>
+    <div class="cols">
+      <div><label>Latitude</label><input type="text" id="fLat" value="${p?.lat??preset?.lat??''}" placeholder="29.760400"></div>
+      <div><label>Longitude</label><input type="text" id="fLon" value="${p?.lon??preset?.lon??''}" placeholder="-95.369800"></div>
+    </div>
+    <div class="cols">
+      <div><label>Elevation</label><input type="text" id="fElev" value="${esc(p?.elev||'')}" placeholder="52.41"></div>
+      <div><label>On datum</label><input type="text" id="fElevDatum" value="${esc(p?.elevDatum||'')}" placeholder="NAVD88 GEOID18"></div>
+    </div>
+    <div class="cols">
+      <div><label>PID / designation</label><input type="text" id="fDesig" value="${esc(p?.desig||'')}" placeholder="NGS PID, county ID"></div>
+      <div><label>Set / recovered by</label><input type="text" id="fSetBy" value="${esc(p?.setBy||'')}" placeholder="crew or agency"></div>
+    </div>
+    <div class="cols">
+      <div><label>Date</label><input type="text" id="fSetOn" value="${esc(p?.setOn||'')}" placeholder="2025-08-14"></div>
+      <div><label>Monument</label><input type="text" id="fMon" value="${esc(p?.mon||'')}" placeholder="5/8&quot; iron rod w/ cap, disk, nail"></div>
+    </div>
+    <label>Description — how to find it</label>
+    <textarea id="fDesc" placeholder="NE corner of the entry island, 3' S of the fire hydrant…">${esc(p?.desc||'')}</textarea>
+    <div class="subhead">Documents tied to this pin</div>
+    <div id="ptDocs"></div>
+    <button class="btn btn-sm" type="button" onclick="addPtDoc()" style="margin-top:6px">+ document</button>
+    <div class="hint">Datasheets, the TBM card, the photo of the monument — these show in the map popup.</div>
+    ${actions(p?`delPoint('${p.id}')`:'','savePoint()')}`,'fName');
+  renderPtDocs();
+}
+function renderPtDocs(){
+  const box=el('ptDocs');
+  if(!box)return;
+  box.innerHTML=ptDocs.length?ptDocs.map((d,i)=>`<div class="cols" style="margin-top:6px;align-items:flex-end">
+      <div style="flex:1.1"><input type="text" placeholder="title" value="${esc(d.title||'')}" oninput="ptDocs[${i}].title=this.value"></div>
+      <div style="max-width:120px"><select onchange="ptDocs[${i}].kind=this.value">
+        ${DOC_KINDS.map(k=>`<option value="${k.k}"${d.kind===k.k?' selected':''}>${k.i} ${k.l}</option>`).join('')}</select></div>
+      <div style="flex:1.4"><input type="url" placeholder="link" value="${esc(d.url||'')}" oninput="ptDocs[${i}].url=this.value"></div>
+      <button class="btn btn-sm btn-danger" type="button" onclick="ptDocs.splice(${i},1);renderPtDocs()">×</button>
+    </div>`).join(''):`<div class="hint" style="margin-top:2px">None linked.</div>`;
+}
+function addPtDoc(){ptDocs.push({id:uid(),title:'',kind:'bm',url:''});renderPtDocs();}
+function savePoint(){
+  const name=val('fName');
+  if(!name)return toast('name the point',1);
+  const s=sub(ownerCtx.id);
+  s.points||=[];
+  const data={
+    type:el('fType').value,name,lat:num(val('fLat')),lon:num(val('fLon')),
+    elev:val('fElev'),elevDatum:val('fElevDatum'),desig:val('fDesig'),
+    setBy:val('fSetBy'),setOn:val('fSetOn'),mon:val('fMon'),desc:val('fDesc'),
+    docs:ptDocs.filter(d=>d.title||d.url)
+  };
+  if(editing)Object.assign(editing,data);
+  else s.points.push({id:uid(),...data});
+  s.updatedAt=Date.now();
+  save();closeModal();render();
+}
+function delPoint(id){
+  const s=sub(ownerCtx.id);
+  if(!confirm('Delete this control point?'))return;
+  s.points=(s.points||[]).filter(p=>p.id!==id);
+  save();closeModal();render();
+}
+
+/* ══════════════════ search ══════════════════
+   One box over everything. Every word has to match, and matching also
+   runs against a punctuation-stripped copy, so "5551234" finds
+   "555-1234" and "tbm1" finds "TBM-1".
+   ═══════════════════════════════════════════ */
+function matches(hay,terms){
+  const h=hay.toLowerCase(),hf=flat(hay);
+  return terms.every(t=>h.includes(t)||hf.includes(flat(t)));
+}
+function searchView(){
+  const terms=searchQ.toLowerCase().split(/\s+/).filter(Boolean);
+  const groups=[
+    {key:'subs',   title:'Subdivisions', ico:'🏘️', rows:[]},
+    {key:'points', title:'Control',      ico:'📍', rows:[]},
+    {key:'reqs',   title:'Requirements', ico:'⚠️', rows:[]},
+    {key:'docs',   title:'Documents',    ico:'📄', rows:[]},
+    {key:'jurs',   title:'Jurisdictions',ico:'🏛️', rows:[]},
+    {key:'cities', title:'Cities',       ico:'🗺️', rows:[]}
+  ];
+  const G=Object.fromEntries(groups.map(g=>[g.key,g]));
+
+  for(const c of DB.cities)
+    if(matches([c.name,c.state,c.notes].join(' '),terms))
+      G.cities.rows.push({name:c.name,path:`${jursIn(c.id).length} jurisdictions`,go:`#/c/${c.id}`});
+
+  for(const j of DB.jurs){
+    const c=city(j.cityId);
+    const hay=[j.name,c?.name,j.notes,j.crs?.system,...(j.flags||[]).map(k=>FLAG[k]?.l)].join(' ');
+    if(matches(hay,terms))G.jurs.rows.push({name:j.name,path:c?c.name:'—',go:`#/j/${j.id}`});
+    for(const r of (j.reqs||[]))
+      if(matches([r.title,r.detail].join(' '),terms))
+        G.reqs.rows.push({name:r.title,path:`${j.name} — applies to all subs`,go:`#/j/${j.id}`});
+    for(const d of (j.docs||[]))
+      if(matches([d.title,d.url].join(' '),terms))
+        G.docs.rows.push({name:d.title,path:j.name,go:`#/j/${j.id}`,url:d.url,ico:(DOC_KIND[d.kind]||DOC_KIND.other).i});
+  }
+
+  for(const s of DB.subs){
+    const hay=[s.name,s.gate,s.superName,s.superPhone,s.builder,s.contact,s.access,s.benchmark,s.notes,
+               pathOf(s),...(s.flags||[]).map(k=>FLAG[k]?.l)].join(' ');
+    if(matches(hay,terms))
+      G.subs.rows.push({name:s.name,path:pathOf(s)+(s.gate?` · gate ${s.gate}`:''),go:`#/s/${s.id}`});
+    for(const p of (s.points||[]))
+      if(matches([p.name,p.desig,p.desc,p.elev,p.elevDatum,p.setBy,p.mon].join(' '),terms))
+        G.points.rows.push({name:`${p.type} ${p.name}`,path:`${s.name} · ${p.elev?p.elev+' ':''}${p.desc||''}`.trim(),
+                            go:`#/s/${s.id}`,focus:p.id,ico:p.type==='TBM'?'🔶':'📍'});
+    for(const r of (s.reqs||[]))
+      if(matches([r.title,r.detail].join(' '),terms))
+        G.reqs.rows.push({name:r.title,path:s.name,go:`#/s/${s.id}`});
+    for(const d of (s.docs||[]))
+      if(matches([d.title,d.url].join(' '),terms))
+        G.docs.rows.push({name:d.title,path:s.name,go:`#/s/${s.id}`,url:d.url,ico:(DOC_KIND[d.kind]||DOC_KIND.other).i});
+  }
+
+  const total=groups.reduce((n,g)=>n+g.rows.length,0);
+  if(!total)return `<div class="empty-hint">Nothing matches “${esc(searchQ)}”.</div>`;
+  const html=groups.filter(g=>g.rows.length).map(g=>`<div class="res-group">
+      <h4>${g.title} · ${g.rows.length}</h4>
+      ${g.rows.slice(0,40).map(r=>`<div class="res" onclick="jump('${r.go}'${r.focus?`,'${r.focus}'`:''})">
+          <span class="res-ico">${r.ico||g.ico}</span>
+          <span class="res-main"><span class="res-name">${mark(r.name,terms)}</span>
+            <span class="res-path">${mark(r.path||'',terms)}</span></span>
+          ${r.url?`<a class="btn btn-sm" data-stop href="${esc(r.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">open ↗</a>`:''}
+        </div>`).join('')}
+      ${g.rows.length>40?`<div class="hint">+${g.rows.length-40} more — narrow the search</div>`:''}
+    </div>`).join('');
+  return `<div class="view-head"><div><div class="view-title">${total} match${total===1?'':'es'}</div>
+    <div class="view-sub">for “${esc(searchQ)}” · Esc clears</div></div></div>${html}`;
+}
+function mark(text,terms){
+  let out=esc(text);
+  for(const t of terms){
+    if(t.length<2)continue;
+    out=out.replace(new RegExp(`(${t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'ig'),'<mark>$1</mark>');
+  }
+  return out;
+}
+let pendingFocus=null;
+function jump(hash,focusId){
+  pendingFocus=focusId||null;
+  el('search').value='';searchQ='';
+  go(hash);
+  if(pendingFocus)setTimeout(()=>{focusPoint(pendingFocus);pendingFocus=null;},420);
+}
+
+/* ══════════════════ import / export ══════════════════ */
+function openDataModal(){
+  const pts=allPoints().length;
+  openModal(`<h2>Library data</h2>
+    <div class="sub-meta">Everything lives in this browser. Export to move it to another machine or to back it up.</div>
+    <div class="panel" style="box-shadow:none;margin:10px 0">
+      <div class="panel-body"><div class="crs-grid">
+        <div class="crs-cell"><div class="lbl">Cities</div><div class="val">${DB.cities.length}</div></div>
+        <div class="crs-cell"><div class="lbl">Jurisdictions</div><div class="val">${DB.jurs.length}</div></div>
+        <div class="crs-cell"><div class="lbl">Subdivisions</div><div class="val">${DB.subs.length}</div></div>
+        <div class="crs-cell"><div class="lbl">Control points</div><div class="val">${pts}</div></div>
+      </div></div>
+    </div>
+    <button class="btn btn-primary" onclick="exportJson()">⬇ export JSON</button>
+    <button class="btn" onclick="el('importFile').click()">⬆ import JSON</button>
+    <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importJson(this)">
+    <div class="hint">Import <b>merges</b> — cities, jurisdictions and subs with the same name are updated in place, new ones are added. Nothing is deleted.</div>
+    <div class="subhead">Danger</div>
+    <button class="btn btn-danger" onclick="wipe()">erase the whole library</button>
+    ${DB.cities.length?'':`<button class="btn" onclick="loadDemo()">load example data</button>`}
+    <div class="modal-actions"><button class="btn" onclick="closeModal()">close</button></div>`);
+}
+function exportJson(){
+  const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`sub-intel-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('exported');
+}
+function importJson(input){
+  const f=input.files?.[0];
+  if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const d=migrate(JSON.parse(r.result));
+      if(!d||!Array.isArray(d.subs))throw new Error('not a Sub Intel export');
+      mergeIn(d);
+      save();closeModal();render();
+      toast('imported');
+    }catch(e){console.error(e);toast('could not read that file',1);}
+  };
+  r.readAsText(f);
+  input.value='';
+}
+/* merge by name so two people can keep parallel copies and combine them */
+function mergeIn(d){
+  const cityBy=n=>DB.cities.find(c=>normKey(c.name)===normKey(n));
+  for(const c of (d.cities||[])){
+    const ex=cityBy(c.name);
+    if(ex)Object.assign(ex,{state:c.state||ex.state,notes:c.notes||ex.notes});
+    else DB.cities.push({...c,id:c.id||uid()});
+  }
+  const cityIdMap={};
+  for(const c of (d.cities||[]))cityIdMap[c.id]=cityBy(c.name)?.id;
+  const jurIdMap={};
+  for(const j of (d.jurs||[])){
+    const cid=cityIdMap[j.cityId]||DB.cities[0]?.id;
+    const ex=DB.jurs.find(x=>normKey(x.name)===normKey(j.name)&&x.cityId===cid);
+    if(ex){
+      jurIdMap[j.id]=ex.id;
+      ex.crs={...ex.crs,...j.crs};
+      ex.flags=[...new Set([...(ex.flags||[]),...(j.flags||[])])];
+      ex.reqs=mergeList(ex.reqs,j.reqs,'title');
+      ex.docs=mergeList(ex.docs,j.docs,'title');
+      ex.notes=ex.notes||j.notes;
+    }else{
+      const nj={...j,id:uid(),cityId:cid};
+      DB.jurs.push(nj);jurIdMap[j.id]=nj.id;
+    }
+  }
+  for(const s of (d.subs||[])){
+    const jid=jurIdMap[s.jurId]||DB.jurs[0]?.id;
+    const ex=DB.subs.find(x=>normKey(x.name)===normKey(s.name)&&x.jurId===jid);
+    if(ex){
+      for(const k of ['gate','superName','superPhone','builder','contact','access','benchmark','notes'])
+        if(s[k])ex[k]=s[k];
+      if(s.lat!=null){ex.lat=s.lat;ex.lon=s.lon;}
+      ex.crs={...ex.crs,...s.crs};
+      ex.flags=[...new Set([...(ex.flags||[]),...(s.flags||[])])];
+      ex.reqs=mergeList(ex.reqs,s.reqs,'title');
+      ex.docs=mergeList(ex.docs,s.docs,'title');
+      ex.points=mergeList(ex.points,s.points,'name');
+    }else DB.subs.push({...s,id:uid(),jurId:jid});
+  }
+}
+function mergeList(a,b,key){
+  const out=(a||[]).slice();
+  for(const item of (b||[])){
+    const ex=out.find(x=>normKey(x[key])===normKey(item[key]));
+    if(ex)Object.assign(ex,{...item,id:ex.id});
+    else out.push({...item,id:uid()});
+  }
+  return out;
+}
+function wipe(){
+  if(!confirm('Erase every city, jurisdiction, subdivision and control point on this machine? Export first if you want it back.'))return;
+  if(!confirm('Really erase it all? There is no undo.'))return;
+  DB={version:3,cities:[],jurs:[],subs:[]};
+  route={v:'home'};
+  save();closeModal();go('#/');render();
+}
+
+/* ══════════════════ example data ══════════════════
+   A worked example so the shape is obvious on first run. Everything in
+   it is made up — erase it once the real library starts.
+   ═══════════════════════════════════════════════ */
+function loadDemo(){
+  if(DB.cities.length&&!confirm('Add the example city alongside what you already have?'))return;
+  const c={id:uid(),name:'Houston',state:'TX',notes:'Example data — erase it when the real library starts.'};
+  const harris={id:uid(),cityId:c.id,name:'Harris County',kind:'county',
+    crs:{system:'NAD83 Texas South Central 4204',units:'US survey feet',hDatum:'NAD83(2011) epoch 2010.00',
+         vDatum:'NAVD88',geoid:'GEOID18',csf:'0.99988123'},
+    flags:['permit','ppe'],
+    reqs:[
+      {id:uid(),title:'ROW permit before any work in county right of way',sev:'critical',
+       detail:'Permits office, 10 business days. The permit number goes on the field notes.'},
+      {id:uid(),title:'48-hour notice to the county inspector',sev:'required',
+       detail:'Email the inspector of record. No notice, no inspection, and the pour gets held.'},
+      {id:uid(),title:'Tie every job to two county benchmarks',sev:'info',
+       detail:'One is a check, not a tie. The county rejects single-BM vertical.'}
+    ],
+    docs:[
+      {id:uid(),title:'Harris County construction standards',kind:'spec',url:'https://example.org/standards.pdf'},
+      {id:uid(),title:'ROW permit application',kind:'permit',url:'https://example.org/row-permit'},
+      {id:uid(),title:'County benchmark index',kind:'bm',url:'https://example.org/bm-index'}
+    ],
+    notes:'Plan check runs two weeks in the spring. Submit early.'};
+  const katy={id:uid(),cityId:c.id,name:'City of Katy',kind:'city',
+    crs:{system:'NAD83 Texas South Central 4204',units:'US survey feet',vDatum:'NAVD88',geoid:'GEOID18'},
+    flags:['tree','notify'],
+    reqs:[{id:uid(),title:'Tree survey required with any plat',sev:'required',
+      detail:'Everything 6" DBH and up inside the limits, species and size called out.'}],
+    docs:[{id:uid(),title:'Katy subdivision ordinance',kind:'spec',url:'https://example.org/katy-ordinance'}],
+    notes:''};
+  const subs=[
+    {id:uid(),jurId:harris.id,name:'Cane Island — Section 14',lat:29.7955,lon:-95.8241,
+     gate:'#4471',superName:'Ray Alvarez',superPhone:'281-555-0142',builder:'Perry Homes, Highland',
+     access:'Call the super before entering — no entry before 7am',
+     flags:['gate','notify','mudrd'],crs:{},
+     benchmark:'County BM on the box culvert at the entrance is the hold. TBM-1 is the working BM at the model.',
+     notes:'Lot numbering runs backward off Cane Island Pkwy. Back half is impassable for a day after rain.',
+     reqs:[{id:uid(),title:'Guard shack needs the crew names the day before',sev:'required',
+            detail:'Text the super the list. Walk-ins get turned around.'}],
+     docs:[{id:uid(),title:'Section 14 recorded plat',kind:'plat',url:'https://example.org/cane-14-plat.pdf'},
+           {id:uid(),title:'Section 14 paving plans',kind:'plan',url:'https://example.org/cane-14-plans.pdf'}],
+     points:[
+       {id:uid(),type:'BM',name:'HC BM 4327',lat:29.7948,lon:-95.8262,elev:'128.44',elevDatum:'NAVD88 GEOID18',
+        desig:'HC-4327',setBy:'Harris County',mon:'brass disk in culvert headwall',
+        desc:'Top of the box culvert headwall, N side of the entrance drive.',
+        docs:[{id:uid(),title:'HC 4327 datasheet',kind:'bm',url:'https://example.org/hc4327.pdf'}]},
+       {id:uid(),type:'TBM',name:'TBM-1',lat:29.7957,lon:-95.8235,elev:'130.12',elevDatum:'NAVD88 GEOID18',
+        setBy:'Field crew 3',setOn:'2025-08-14',mon:'5/8" iron rod w/ orange cap',
+        desc:'NE corner of the model home island, 3 ft S of the hydrant.',
+        docs:[{id:uid(),title:'TBM-1 card + photo',kind:'bm',url:'https://example.org/tbm1.pdf'}]},
+       {id:uid(),type:'TBM',name:'TBM-2',lat:29.7969,lon:-95.8219,elev:'129.87',elevDatum:'NAVD88 GEOID18',
+        setBy:'Field crew 3',setOn:'2025-08-14',mon:'mag nail in curb',
+        desc:'Back of curb at the Lot 41 driveway return.',docs:[]}
+     ],updatedAt:Date.now()},
+    {id:uid(),jurId:katy.id,name:'Elyson — Section 22',lat:29.8121,lon:-95.8188,
+     gate:'',superName:'Dana Whitfield',superPhone:'832-555-0119',builder:'Westin, Chesmar',
+     access:'',flags:['tree','ppe'],crs:{system:'NAD83 Texas South Central 4204 — site calibration on file'},
+     benchmark:'',notes:'Park the trucks at the amenity lot; the entry loop tickets after 8am.',
+     reqs:[],docs:[],
+     points:[{id:uid(),type:'TBM',name:'TBM-A',lat:29.8118,lon:-95.8201,elev:'142.03',elevDatum:'NAVD88 GEOID18',
+        setBy:'Field crew 1',setOn:'2025-06-02',mon:'5/8" iron rod w/ cap',
+        desc:'S side of the amenity lot entrance.',docs:[]}],updatedAt:Date.now()}
+  ];
+  DB.cities.push(c);DB.jurs.push(harris,katy);DB.subs.push(...subs);
+  save();closeModal();go('#/c/'+c.id);render();
+  toast('example data loaded');
+}
+
+/* ══════════════════ chrome wiring ══════════════════ */
+function toggleTheme(){
+  const cur=document.documentElement.getAttribute('data-theme');
+  const dark=matchMedia('(prefers-color-scheme:dark)').matches;
+  const next=cur?(cur==='dark'?'light':'dark'):(dark?'light':'dark');
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem(THEME_KEY,next);}catch(e){}
+}
+try{
+  const t=localStorage.getItem(THEME_KEY);
+  if(t)document.documentElement.setAttribute('data-theme',t);
+}catch(e){}
+
+el('search').addEventListener('input',e=>{
+  searchQ=e.target.value.trim();
+  render();
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(el('overlay').classList.contains('open'))return closeModal();
+    if(mapState.pickMode){mapState.pickMode=null;document.querySelectorAll('.map-hint').forEach(n=>n.remove());return;}
+    if(searchQ){el('search').value='';searchQ='';render();}
+    return;
+  }
+  if(e.key==='/'&&document.activeElement.tagName!=='INPUT'&&document.activeElement.tagName!=='TEXTAREA'&&document.activeElement.tagName!=='SELECT'){
+    e.preventDefault();el('search').focus();
+  }
+});
+
+load();
+readRoute();
+</script>
+</body>
+</html>

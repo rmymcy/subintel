@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Truck Lab</title>
+<meta name="description" content="A rough time-and-motion model for where tools live in a survey truck, and which bags are worth making.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="icon" href="favicon-32.png" sizes="32x32">
+<style>
+:root{
+  --bg:#f5f5f7;--bg-soft:#e8e8ed;--bg-panel:#fff;--border:#d1d1d6;--border-soft:#e4e4e9;
+  --text:#1d1c18;--muted:#696660;--faint:#95928c;
+  --blue:#1e4974;--blue-soft:#2e5d8b;--blue-deep:#143659;--blue-wash:#e7eef6;
+  --red:#a82626;--red-wash:#f5e3e3;--green:#5c7f3f;--green-wash:#eef1e3;
+  --amber:#b07419;--amber-wash:#fae9c4;--amber-ink:#7a5210;--orange:#c2521f;--orange-wash:#fbe7dc;
+  --shadow:0 1px 2px rgba(0,0,0,.06),0 1px 1px rgba(0,0,0,.04);
+  --shadow-lg:0 8px 22px rgba(0,0,0,.10),0 3px 6px rgba(0,0,0,.05);
+  --radius:8px;--radius-sm:5px;
+  --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#16181c;--bg-soft:#22252b;--bg-panel:#1d2025;--border:#33373f;--border-soft:#2a2e35;
+  --text:#e9e8e4;--muted:#9a978f;--faint:#6d6a64;
+  --blue:#6ea3d8;--blue-soft:#8bb8e6;--blue-deep:#0f2740;--blue-wash:#1c2c3d;
+  --red:#e08080;--red-wash:#3a2222;--green:#a3c47d;--green-wash:#26301c;
+  --amber:#e0a94a;--amber-wash:#3a2e14;--amber-ink:#e8c37c;--orange:#e0895b;--orange-wash:#3a2318;
+  --shadow:0 1px 2px rgba(0,0,0,.4);--shadow-lg:0 8px 22px rgba(0,0,0,.5);
+}}
+:root[data-theme="dark"]{
+  --bg:#16181c;--bg-soft:#22252b;--bg-panel:#1d2025;--border:#33373f;--border-soft:#2a2e35;
+  --text:#e9e8e4;--muted:#9a978f;--faint:#6d6a64;
+  --blue:#6ea3d8;--blue-soft:#8bb8e6;--blue-deep:#0f2740;--blue-wash:#1c2c3d;
+  --red:#e08080;--red-wash:#3a2222;--green:#a3c47d;--green-wash:#26301c;
+  --amber:#e0a94a;--amber-wash:#3a2e14;--amber-ink:#e8c37c;--orange:#e0895b;--orange-wash:#3a2318;
+  --shadow:0 1px 2px rgba(0,0,0,.4);--shadow-lg:0 8px 22px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:var(--font);background:var(--bg);color:var(--text);display:flex;flex-direction:column;overflow:hidden}
+
+header{display:flex;align-items:center;gap:9px;padding:9px 12px 9px 52px;background:var(--bg-panel);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+header h1{font-size:15px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.ver{font-size:10px;color:var(--faint);font-weight:500}
+.spacer{flex:1}
+.btn{padding:6px 11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-panel);font:inherit;font-size:12px;font-weight:600;cursor:pointer;color:var(--text);white-space:nowrap}
+.btn:hover{background:var(--bg-soft)}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue-soft)}
+.btn-danger{color:var(--red);border-color:var(--red);background:transparent}
+.btn-sm{padding:3px 8px;font-size:11px}
+.btn-icon{padding:5px 8px;font-size:13px;line-height:1}
+
+/* KPI strip */
+#kpis{display:flex;gap:0;background:var(--bg-panel);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.kpi{padding:8px 14px;border-right:1px solid var(--border-soft);min-width:112px;flex-shrink:0}
+.kpi .l{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.kpi .v{font-size:19px;font-weight:700;font-family:var(--mono);letter-spacing:-.02em;line-height:1.2}
+.kpi .s{font-size:10.5px;color:var(--faint)}
+.kpi .v.good{color:var(--green)}.kpi .v.warn{color:var(--amber)}.kpi .v.bad{color:var(--red)}
+
+/* tabs */
+#tabs{display:flex;gap:2px;padding:0 12px;background:var(--bg-panel);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto}
+.tab{padding:8px 13px;font:inherit;font-size:12.5px;font-weight:600;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab.on{color:var(--blue);border-bottom-color:var(--blue)}
+
+main{flex:1;overflow-y:auto;padding:14px;-webkit-overflow-scrolling:touch}
+.wrap{max-width:1280px;margin:0 auto}
+.split{display:grid;grid-template-columns:330px 1fr;gap:14px;align-items:start}
+@media (max-width:820px){.split{grid-template-columns:1fr}}
+
+.panel{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:12px;overflow:hidden}
+.panel-head{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap}
+.panel-head h3{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.panel-head .n{font-size:10px;color:var(--faint);font-weight:600}
+.panel-body{padding:12px}
+.panel-body.flush{padding:0}
+.hint{font-size:11px;color:var(--faint);line-height:1.45}
+
+/* truck plan */
+svg.plan{width:100%;height:auto;display:block;background:var(--bg);border-radius:var(--radius)}
+.zone-rect{cursor:pointer;transition:opacity .1s}
+.zone-rect:hover{opacity:.85}
+.zone-lbl{font-size:9px;font-weight:700;fill:var(--text);pointer-events:none;font-family:var(--font)}
+.zone-sub{font-size:7.5px;fill:var(--muted);pointer-events:none;font-family:var(--mono)}
+.truck-body{fill:none;stroke:var(--border);stroke-width:2}
+.truck-note{font-size:8px;fill:var(--faint);font-family:var(--font)}
+
+/* lists */
+.row{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border-soft);font-size:12.5px}
+.row:last-child{border-bottom:none}
+.row:hover{background:var(--bg)}
+.row.sel{background:var(--blue-wash)}
+.row .nm{flex:1;min-width:0;font-weight:600}
+.row .meta{font-size:10.5px;color:var(--muted);font-family:var(--mono);white-space:nowrap}
+.row .pick{cursor:pointer}
+.tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:3px;padding:1px 5px;background:var(--bg-soft);color:var(--muted);flex-shrink:0}
+.tag.hot{background:var(--orange-wash);color:var(--orange)}
+.tag.zone{background:var(--blue-wash);color:var(--blue)}
+.tag.save{background:var(--green-wash);color:var(--green)}
+.bar{height:5px;border-radius:3px;background:var(--bg-soft);overflow:hidden;margin-top:3px}
+.bar>i{display:block;height:100%;background:var(--blue)}
+.bar>i.warn{background:var(--amber)}.bar>i.bad{background:var(--red)}
+
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:4px 8px;border-bottom:1px solid var(--border-soft);vertical-align:middle}
+td input,td select{width:100%;padding:4px 6px;border:1px solid transparent;border-radius:4px;font:inherit;font-size:12px;background:transparent;color:var(--text)}
+td input:hover,td select:hover{border-color:var(--border)}
+td input:focus,td select:focus{outline:none;border-color:var(--blue-soft);background:var(--bg)}
+td input.num{font-family:var(--mono);text-align:right;max-width:74px}
+tr.dead td{opacity:.4}
+
+.pillrow{display:flex;gap:5px;flex-wrap:wrap}
+.pill{font-size:10.5px;padding:2px 7px;border-radius:99px;background:var(--bg-soft);color:var(--muted);font-weight:600}
+.pill.on{background:var(--blue-wash);color:var(--blue)}
+
+.kit{border:1px solid var(--border);border-radius:var(--radius);padding:11px 12px;margin-bottom:9px;background:var(--bg-panel)}
+.kit h4{font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.kit .why{font-size:11.5px;color:var(--muted);margin:4px 0 7px;line-height:1.45}
+
+.cmp{display:flex;flex-direction:column;gap:9px}
+.cmp-row{display:flex;align-items:center;gap:9px}
+.cmp-row .lab{width:118px;font-size:11.5px;font-weight:600;flex-shrink:0}
+.cmp-row .track{flex:1;height:22px;background:var(--bg-soft);border-radius:4px;overflow:hidden;position:relative}
+.cmp-row .fill{height:100%;background:var(--blue);display:flex;align-items:center;justify-content:flex-end;padding-right:7px;color:#fff;font-size:11px;font-weight:700;font-family:var(--mono)}
+.cmp-row .fill.best{background:var(--green)}
+
+.sheet{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.sheet h2{font-size:17px;margin-bottom:2px}
+.sheet .sub{font-size:11.5px;color:var(--muted);margin-bottom:14px}
+.sheet-zone{border-top:1px solid var(--border);padding:9px 0}
+.sheet-zone h4{font-size:12.5px;font-weight:700;display:flex;gap:8px;align-items:baseline}
+.sheet-zone .cap{font-size:10.5px;color:var(--muted);font-family:var(--mono);font-weight:500}
+.sheet-zone ul{margin:5px 0 0 16px;font-size:12px;line-height:1.6}
+
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--blue-deep);color:#fff;font-size:12.5px;padding:9px 16px;border-radius:var(--radius);box-shadow:var(--shadow-lg);transition:transform .18s;z-index:100;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+@media print{header,#tabs,#kpis,.btn{display:none!important}body{overflow:visible}main{overflow:visible;padding:0}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Truck Lab <span class="ver">v0.1 · rough model</span></h1>
+  <span class="spacer"></span>
+  <button class="btn" onclick="optimize()">⚙ Optimize placement</button>
+  <button class="btn" onclick="resetAll()">reset</button>
+  <button class="btn btn-icon" onclick="toggleTheme()" title="light / dark">◐</button>
+</header>
+
+<div id="kpis"></div>
+
+<div id="tabs">
+  <button class="tab on" data-tab="layout" onclick="setTab('layout')">Layout</button>
+  <button class="tab" data-tab="kits" onclick="setTab('kits')">Bags &amp; kits</button>
+  <button class="tab" data-tab="tools" onclick="setTab('tools')">Tools</button>
+  <button class="tab" data-tab="zones" onclick="setTab('zones')">Truck zones</button>
+  <button class="tab" data-tab="sheet" onclick="setTab('sheet')">Layout sheet</button>
+</div>
+
+<main><div class="wrap" id="view"></div></main>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ══════════════════════════════════════════════════════════════════
+   Truck Lab — a rough time-and-motion model for a survey truck.
+
+   The whole model is one idea: every tool gets fetched some number of
+   times a day, and every spot in the truck costs some number of seconds
+   to fetch from. Minutes per day of fetching is the score. That is
+   enough to rank layouts against each other and to see which bags are
+   worth making. It is NOT a physics or packing simulation — volumes are
+   rough, the reach times are estimates you should edit to match your
+   trucks, and nothing here knows what your bed actually looks like.
+   ══════════════════════════════════════════════════════════════════ */
+const DB_KEY='truckLabDB';
+const THEME_KEY='truckLabTheme';
+
+/* Zones: where a thing can live. reach = seconds to walk to it, open it,
+   get the tool out and be back at the work. rear = share of this zone's
+   weight the rear axle carries (behind the axle is over 1). */
+const SEED_ZONES=[
+  {id:'tail', name:'Bed floor — tailgate',  reach:6,  vol:12, lbs:300, rear:1.02, x:78, y:436, w:156,h:146},
+  {id:'railD',name:'Rail box — driver',     reach:11, vol:4,  lbs:100, rear:0.85, x:20, y:436, w:54, h:110},
+  {id:'railP',name:'Rail box — passenger',  reach:11, vol:4,  lbs:100, rear:0.85, x:238,y:436, w:54, h:110},
+  {id:'xoD',  name:'Crossover box — driver',reach:15, vol:5,  lbs:150, rear:0.72, x:20, y:276, w:130,h:54},
+  {id:'xoP',  name:'Crossover box — pass',  reach:15, vol:5,  lbs:150, rear:0.72, x:162,y:276, w:130,h:54},
+  {id:'bedF', name:'Bed floor — front',     reach:24, vol:14, lbs:400, rear:0.78, x:20, y:336, w:272,h:94},
+  {id:'cabF', name:'Cab — passenger floor', reach:19, vol:4,  lbs:60,  rear:0.30, x:162,y:120, w:130,h:68},
+  {id:'cabR', name:'Cab — back seat',       reach:26, vol:9,  lbs:120, rear:0.38, x:20, y:196, w:272,h:60},
+  {id:'rack', name:'Ladder rack / roof',    reach:48, vol:20, lbs:200, rear:0.55, x:20, y:40,  w:272,h:70}
+];
+
+/* Tasks: what a crew actually does in a day, and what each one needs.
+   jobs = how many of that task this truck runs per day. */
+const SEED_TASKS=[
+  {id:'form',  name:'Form survey',       jobs:4, tools:['gps','dc','pk','tape100','tape25','paint','flag','belt','string','vest','plans','cones']},
+  {id:'final', name:'Final w/ swale',    jobs:3, tools:['gps','dc','rod','tape100','tape25','paint','plans','vest']},
+  {id:'grade', name:'Grade staking',     jobs:3, tools:['gps','dc','hubs','lath','stakes','sledge','hatchet','paint','flag','plans','vest']},
+  {id:'env',   name:'Building envelope', jobs:2, tools:['gps','dc','hubs','lath','sledge','hatchet','machete','paint','flag','plans']},
+  {id:'slab',  name:'Slab / finish floor',jobs:2,tools:['gps','dc','rod','pk','tape25','paint','belt','plans','vest']},
+  {id:'bound', name:'Boundary / lot check',jobs:1,tools:['gps','dc','base','rebar','sledge','machete','shovel','tape100','paint','flag','plans']}
+];
+
+/* Tools. vol is rough cubic feet, trips is how many times a day somebody
+   goes and gets it. bag = can it live in a carry bag. */
+const SEED_TOOLS=[
+  {id:'gps',    name:'GPS rover + pole',        cat:'instrument', vol:1.8, lbs:18, trips:12, bag:false},
+  {id:'dc',     name:'Data collector',          cat:'instrument', vol:0.3, lbs:3,  trips:12, bag:true},
+  {id:'base',   name:'Base receiver + tripod',  cat:'instrument', vol:3.5, lbs:32, trips:2,  bag:false},
+  {id:'plans',  name:'Tablet / plans',          cat:'instrument', vol:0.3, lbs:3,  trips:14, bag:true},
+  {id:'batt',   name:'Batteries + chargers',    cat:'instrument', vol:0.6, lbs:8,  trips:3,  bag:true},
+  {id:'hubs',   name:'Hubs',                    cat:'stakes',     vol:1.5, lbs:25, trips:6,  bag:true},
+  {id:'lath',   name:'Lath bundle',             cat:'stakes',     vol:2.5, lbs:20, trips:6,  bag:false},
+  {id:'stakes', name:'2x2 stakes',              cat:'stakes',     vol:3.0, lbs:30, trips:4,  bag:false},
+  {id:'rebar',  name:'Rebar + caps',            cat:'stakes',     vol:1.8, lbs:35, trips:2,  bag:false},
+  {id:'sledge', name:'Sledge (3 lb)',           cat:'hand',       vol:0.4, lbs:4,  trips:8,  bag:true},
+  {id:'hatchet',name:'Hatchet',                 cat:'hand',       vol:0.2, lbs:3,  trips:6,  bag:true},
+  {id:'machete',name:'Machete',                 cat:'hand',       vol:0.3, lbs:3,  trips:3,  bag:true},
+  {id:'shovel', name:'Shovel',                  cat:'hand',       vol:1.2, lbs:5,  trips:2,  bag:false},
+  {id:'paint',  name:'Marking paint (case)',    cat:'marking',    vol:1.0, lbs:12, trips:10, bag:true},
+  {id:'flag',   name:'Flagging tape',           cat:'marking',    vol:0.3, lbs:2,  trips:8,  bag:true},
+  {id:'pk',     name:'PK nails / tacks',        cat:'marking',    vol:0.15,lbs:3,  trips:6,  bag:true},
+  {id:'tape100',name:"100' tape",               cat:'measure',    vol:0.5, lbs:4,  trips:5,  bag:true},
+  {id:'tape25', name:"25' tape",                cat:'measure',    vol:0.1, lbs:1,  trips:10, bag:true},
+  {id:'rod',    name:'Level rod',               cat:'measure',    vol:1.0, lbs:6,  trips:4,  bag:false},
+  {id:'string', name:'String line / plumb bob', cat:'measure',    vol:0.2, lbs:2,  trips:3,  bag:true},
+  {id:'belt',   name:'Nail apron / tool belt',  cat:'hand',       vol:0.5, lbs:5,  trips:4,  bag:true},
+  {id:'cones',  name:'Traffic cones (4)',       cat:'safety',     vol:2.5, lbs:12, trips:3,  bag:false},
+  {id:'vest',   name:'Vest + hard hat',         cat:'safety',     vol:0.8, lbs:4,  trips:2,  bag:true},
+  {id:'water',  name:'Water cooler',            cat:'safety',     vol:2.0, lbs:25, trips:6,  bag:false},
+  {id:'aid',    name:'First aid kit',           cat:'safety',     vol:0.5, lbs:4,  trips:0.2,bag:true}
+];
+
+/* how bad it is to have a tool with no home — you dig for it */
+const LOOSE_REACH=50;
+/* a zone past this full starts costing extra: things get buried */
+const CRAM_START=0.6, CRAM_COST=1.6;
+/* what a crew-carryable bag can hold before it's a second trip anyway */
+const BAG_LBS=35, BAG_VOL=2.2;
+
+let DB={zones:[],tools:[],tasks:[],place:{},kits:[]};
+let tab='layout', selTool=null, selZone=null, lastOpt=null;
+
+const uid=()=>Math.random().toString(36).slice(2,8);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const el=id=>document.getElementById(id);
+const num=(v,d)=>{const n=parseFloat(v);return Number.isFinite(n)?n:d;};
+const mins=sec=>(sec/60);
+const fmtMin=sec=>`${(sec/60).toFixed(1)}`;
+function toast(m){const t=el('toast');t.textContent=m;t.className='show';clearTimeout(t._h);t._h=setTimeout(()=>t.className='',2200);}
+
+function save(){try{localStorage.setItem(DB_KEY,JSON.stringify(DB));}catch(e){}}
+function load(){
+  try{
+    const raw=localStorage.getItem(DB_KEY);
+    if(raw){const d=JSON.parse(raw);if(d&&d.tools)DB=d;}
+  }catch(e){}
+  if(!DB.zones?.length)DB.zones=structuredClone(SEED_ZONES);
+  if(!DB.tools?.length)DB.tools=structuredClone(SEED_TOOLS);
+  if(!DB.tasks?.length)DB.tasks=structuredClone(SEED_TASKS);
+  DB.place||={};DB.kits||=[];
+}
+function resetAll(){
+  if(!confirm('Throw away your edits and go back to the seeded truck?'))return;
+  DB={zones:structuredClone(SEED_ZONES),tools:structuredClone(SEED_TOOLS),
+      tasks:structuredClone(SEED_TASKS),place:{},kits:[]};
+  lastOpt=null;save();render();
+}
+
+/* ── the model ───────────────────────────────────────────────────── */
+const zone=id=>DB.zones.find(z=>z.id===id);
+const tool=id=>DB.tools.find(t=>t.id===id);
+const kit =id=>DB.kits.find(k=>k.id===id);
+/* a tool swallowed by an adopted kit is placed as part of that kit */
+const kitOf=tid=>DB.kits.find(k=>k.tools.includes(tid));
+/* every placeable unit: loose tools plus adopted kits */
+function units(){
+  const out=[];
+  for(const k of DB.kits){
+    const ts=k.tools.map(tool).filter(Boolean);
+    out.push({id:'k_'+k.id, kind:'kit', name:k.name, vol:ts.reduce((a,t)=>a+t.vol,0),
+              lbs:ts.reduce((a,t)=>a+t.lbs,0), trips:k.trips, tools:ts});
+  }
+  for(const t of DB.tools){
+    if(kitOf(t.id))continue;
+    out.push({id:t.id, kind:'tool', name:t.name, vol:t.vol, lbs:t.lbs, trips:t.trips, tools:[t]});
+  }
+  return out;
+}
+/* how full each zone is under a given placement */
+function loads(place){
+  const m={};
+  for(const z of DB.zones)m[z.id]={vol:0,lbs:0,n:0};
+  for(const u of units()){
+    const zid=place[u.id];
+    if(!zid||!m[zid])continue;
+    m[zid].vol+=u.vol;m[zid].lbs+=u.lbs;m[zid].n++;
+  }
+  return m;
+}
+/* the seconds it really costs to get into a zone once it's packed */
+function effReach(z,load){
+  const fill=z.vol>0?load.vol/z.vol:0;
+  const cram=Math.max(0,fill-CRAM_START);
+  return z.reach*(1+cram*CRAM_COST);
+}
+/* the whole score: minutes a day spent fetching, plus what it weighs */
+function score(place){
+  const L=loads(place);
+  let sec=0, homeless=0, overV=0, overW=0, lbs=0, rear=0;
+  const per=[];
+  for(const u of units()){
+    const zid=place[u.id], z=zid?zone(zid):null;
+    const r=z?effReach(z,L[zid]):LOOSE_REACH;
+    const s=u.trips*2*r;                      // there and back, every trip
+    sec+=s;
+    if(!z)homeless++;
+    per.push({unit:u, zid, reach:r, sec:s});
+    lbs+=u.lbs;
+    rear+=u.lbs*(z?z.rear:0.9);
+  }
+  for(const z of DB.zones){
+    if(L[z.id].vol>z.vol)overV++;
+    if(L[z.id].lbs>z.lbs)overW++;
+  }
+  per.sort((a,b)=>b.sec-a.sec);
+  return {sec, min:sec/60, homeless, overV, overW, lbs, rear,
+          rearPct:lbs?rear/lbs:0, loads:L, per};
+}
+
+/* ── optimizer: greedy by how often you touch it, then pair swaps ── */
+function optimize(){
+  const before=score(DB.place);
+  const place={};
+  const us=units().slice().sort((a,b)=>b.trips-a.trips);
+  for(const u of us){
+    let best=null,bestR=Infinity;
+    for(const z of DB.zones){
+      const L=loads(place);
+      if(L[z.id].vol+u.vol>z.vol)continue;
+      if(L[z.id].lbs+u.lbs>z.lbs)continue;
+      const r=effReach(z,{vol:L[z.id].vol+u.vol});
+      if(r<bestR){bestR=r;best=z.id;}
+    }
+    if(best)place[u.id]=best;
+  }
+  // local search: swap two units' zones when it helps and still fits
+  let cur=score(place).sec;
+  const ids=us.map(u=>u.id);
+  for(let pass=0;pass<240;pass++){
+    let moved=false;
+    for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
+      const a=ids[i],b=ids[j];
+      if(place[a]===place[b])continue;
+      const trial={...place,[a]:place[b],[b]:place[a]};
+      if(!fits(trial))continue;
+      const s=score(trial).sec;
+      if(s<cur-0.01){Object.assign(place,trial);cur=s;moved=true;}
+    }
+    if(!moved)break;
+  }
+  DB.place=place;lastOpt=before;save();render();
+  const after=score(DB.place);
+  const d=before.min-after.min;
+  toast(d>0.05?`saves ~${d.toFixed(1)} min/day of fetching`:'already about as good as this model gets');
+}
+function fits(place){
+  const L=loads(place);
+  return DB.zones.every(z=>L[z.id].vol<=z.vol&&L[z.id].lbs<=z.lbs);
+}
+
+/* ── bag suggestions ──────────────────────────────────────────────
+   For each task: the tools it needs, minus the big stuff that can't go
+   in a bag. If those tools are scattered across several zones today,
+   every job means several trips. One bag means one trip. The saving is
+   the difference, times how many of that job you run a day.        */
+function suggestKits(){
+  const out=[];
+  for(const t of DB.tasks){
+    const ts=t.tools.map(tool).filter(t2=>t2&&t2.bag&&!kitOf(t2.id));
+    if(ts.length<3)continue;
+    // trim to what a person can actually carry, most-used first
+    const pick=[];let vol=0,lbs=0;
+    for(const x of ts.slice().sort((a,b)=>b.trips-a.trips)){
+      if(vol+x.vol>BAG_VOL||lbs+x.lbs>BAG_LBS)continue;
+      pick.push(x);vol+=x.vol;lbs+=x.lbs;
+    }
+    if(pick.length<3)continue;
+    const S=score(DB.place);
+    const zonesHit=new Set(pick.map(x=>DB.place[x.id]||'loose'));
+    const tripsNow=[...zonesHit].reduce((a,zid)=>{
+      const z=zid==='loose'?null:zone(zid);
+      return a+(z?effReach(z,S.loads[zid]):LOOSE_REACH);
+    },0);
+    const bagZone=bestFreeZone(vol,lbs)||DB.zones[0];
+    const tripsBag=effReach(bagZone,S.loads[bagZone.id]||{vol:0});
+    const savedSec=t.jobs*2*Math.max(0,tripsNow-tripsBag);
+    out.push({id:'kit_'+t.id, task:t, name:t.name+' bag', tools:pick, vol, lbs,
+              savedMin:savedSec/60, zonesHit:zonesHit.size, home:bagZone});
+  }
+  return out.sort((a,b)=>b.savedMin-a.savedMin);
+}
+function bestFreeZone(vol,lbs){
+  const L=loads(DB.place);
+  return DB.zones.filter(z=>(L[z.id].vol+vol)<=z.vol&&(L[z.id].lbs+lbs)<=z.lbs)
+                 .sort((a,b)=>a.reach-b.reach)[0]||null;
+}
+function adoptKit(k){
+  const sug=suggestKits().find(s=>s.id===k);
+  if(!sug)return;
+  const trips=DB.tasks.filter(t=>sug.tools.some(x=>t.tools.includes(x.id)))
+                      .reduce((a,t)=>a+t.jobs,0);
+  const id=uid();
+  DB.kits.push({id,name:sug.name,tools:sug.tools.map(t=>t.id),trips:Math.max(trips,1)});
+  for(const t of sug.tools)delete DB.place[t.id];
+  DB.place['k_'+id]=sug.home.id;
+  save();render();
+  toast(`${sug.name} built — it lives in ${sug.home.name}`);
+}
+function dropKit(id){
+  DB.kits=DB.kits.filter(k=>k.id!==id);
+  delete DB.place['k_'+id];
+  save();render();
+}

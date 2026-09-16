@@ -45,8 +45,8 @@ it in the truck:
 
 | Section | What's in it |
 |---|---|
-| Header | gate code (large, monospace, **click to copy**), access warning in amber, super with a `tel:` link, requirement icons |
-| Coordinate system | system, datums, units, geoid, combined factor, control notes. Values inherited from the jurisdiction show in *italic* and name their source on hover |
+| Header | gate code (large, monospace, **click to copy**), access warning in amber, the contact with a `tel:` link, the builders, requirement icons |
+| Coordinate system | the zone and the control notes. Inherited values show in *italic* and name their source on hover |
 | Requirements | the sub's own plus everything inherited, tagged with the jurisdiction it came from, ranked *good to know* → *required* → *critical* |
 | Documents | links, each with a kind icon — spec, plat, benchmark datasheet, permit, plan set |
 | Control | the map, then the list |
@@ -54,12 +54,24 @@ it in the truck:
 
 ## Requirement icons
 
-Sixteen flags — 🔒 gated, 📞 notify first, 🪪 orientation, 📋 permit, 🦺 full
-PPE, 🕖 hour limits, 🚧 escort, 💧 district, 🌊 floodplain, 🌳 tree rules,
-🚂 railroad, 🛣️ state ROW, 🛰️ RTN quirk, 🐕 loose dogs, 🛻 4WD, 🚤 water
-access. Set them on a sub, or on a jurisdiction to push them onto every sub
-under it. Inherited flags render **dashed and dimmer** than the sub's own, so
-you can always tell which is which.
+Five, deliberately — the ones that change what a crew does when they pull up:
+
+| | | carries |
+|---|---|---|
+| 🔒 | **Security gate** | `guard shack — crew names the day before` |
+| 🦺 | **Full PPE** | `hard hat, vest, glasses, boots` |
+| 🕖 | **Hour limits** | `7am–6pm weekdays, no Sunday work` |
+| 🌊 | **Flood zone** | `Zone AE along the west boundary` |
+| 📵 | **Poor signal** | `no service past the back half` |
+
+Each one **carries its own detail**, so "hour limits" says *which* hours rather
+than leaving you to go find out. Tick the flag in the editor and a field opens
+next to it; the text shows on the chip everywhere the flag does.
+
+Set them on a sub, or on a jurisdiction to push them onto every sub under it.
+Inherited flags render **dashed and dimmer** than the sub's own, and name their
+source on hover. A sub that sets a flag its jurisdiction also sets overrides the
+jurisdiction's detail with its own.
 
 ## The map
 
@@ -98,12 +110,13 @@ DB = {
   version: 3,
   cities: [ { id, name, state, notes } ],
   jurs:   [ { id, cityId, name, kind,          // county | city | etj | mud | other
-              crs:{ system, units, hDatum, vDatum, geoid, csf, note },
-              flags:[], reqs:[{id,title,sev,detail}],
+              crs:{ system, note },
+              flags:{ ppe:'hard hat and vest', hours:'7am–6pm' },
+              reqs:[{id,title,sev,detail}],
               docs:[{id,title,kind,url}], notes } ],
   subs:   [ { id, jurId, name, lat, lon,
-              gate, superName, superPhone, builder, contact, access,
-              flags:[], crs:{}, benchmark, notes,
+              gate, contactName, contactPhone, builders:[], access,
+              flags:{}, crs:{}, benchmark, notes,
               reqs:[], docs:[],
               points:[ { id, type:'BM'|'TBM', name, lat, lon,
                          elev, elevDatum, desig, setBy, setOn, mon, desc,
@@ -112,8 +125,20 @@ DB = {
 }
 ```
 
+One contact per sub, many builders: a site has a list of builders working it and
+one person who actually answers the phone.
+
+Units, horizontal and vertical datum, geoid model and combined scale factor are
+the same on every job the team runs, so they aren't fields — what gets recorded
+is the zone and what the job is held on. Per-point vertical datum still lives on
+the control point, where it varies.
+
 Consequences of that shape, on purpose:
 
+- **An old library converts itself on open.** Array-form flags become
+  `{key: detail}`, a comma-separated builder string becomes a list, the
+  superintendent becomes the contact, and flags no longer in the catalog are
+  dropped. It's written back in the new shape once, not re-converted every load.
 - **Records are keyed by id, not by name.** v1 keyed intel by the sub's name,
   which is why renaming orphaned it. Renaming anything is safe now.
 - **Inheritance is computed, never copied.** A sub with a blank `crs.vDatum`

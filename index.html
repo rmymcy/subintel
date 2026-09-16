@@ -808,6 +808,8 @@ main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 .flags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
 .flag{font-size:11px;line-height:1;padding:3px 6px;border-radius:4px;background:var(--bg-soft);border:1px solid var(--border-soft);cursor:default;display:inline-flex;align-items:center;gap:4px}
 .flag .fl{font-size:10px;font-weight:600;color:var(--muted)}
+.flag .fn{font-size:10.5px;color:var(--text);font-weight:600;border-left:1px solid var(--border);padding-left:6px;margin-left:2px}
+.flag.lg .fn{font-size:12px}
 .flag.lg{font-size:13px;padding:5px 9px}
 .flag.lg .fl{font-size:11.5px;color:var(--text)}
 .flag.inherit{opacity:.72;border-style:dashed}
@@ -942,9 +944,11 @@ mark{background:var(--amber-wash);color:inherit;border-radius:2px;padding:0 1px}
 .cols{display:flex;gap:8px;flex-wrap:wrap}
 .cols>div{flex:1;min-width:120px}
 .hint{font-size:10.5px;color:var(--faint);margin-top:3px;line-height:1.4}
-.flagpick{display:flex;flex-wrap:wrap;gap:5px;margin-top:4px}
-.flagpick button{font:inherit;font-size:11.5px;padding:4px 8px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;display:inline-flex;gap:5px;align-items:center}
-.flagpick button.on{background:var(--amber-wash);border-color:var(--amber);color:var(--amber-ink);font-weight:600}
+.flagpick{display:flex;flex-direction:column;gap:5px;margin-top:4px}
+.flagopt{display:flex;gap:7px;align-items:center}
+.flagopt>button{font:inherit;font-size:11.5px;padding:6px 9px;border-radius:5px;border:1px solid var(--border);background:var(--bg);color:var(--muted);cursor:pointer;display:inline-flex;gap:6px;align-items:center;white-space:nowrap;width:136px;flex-shrink:0}
+.flagopt.on>button{background:var(--amber-wash);border-color:var(--amber);color:var(--amber-ink);font-weight:600}
+.flagopt>input{flex:1;min-width:0}
 .subhead{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:16px 0 4px;padding-top:12px;border-top:1px solid var(--border-soft)}
 
 /* inner spans that need to stack */
@@ -972,7 +976,7 @@ mark{background:var(--amber-wash);color:inherit;border-radius:2px;padding:0 1px}
 <body>
 
 <header>
-  <h1 onclick="go('#/')">Sub Intel <span class="ver">v2.0</span></h1>
+  <h1 onclick="go('#/')">Sub Intel <span class="ver">v2.2</span></h1>
   <input id="search" type="text" placeholder="search everything — subs, gate codes, benchmarks, requirements…" autocomplete="off">
   <span class="spacer"></span>
   <span class="count-note" id="countNote"></span>
@@ -1017,22 +1021,16 @@ let mapState={map:null,layer:null,pickMode:null,showNear:true};
 
 /* ── requirement flags: the icons that show on a card at a glance ── */
 const FLAGS=[
-  {k:'gate',   i:'🔒', l:'Gated',            d:'Gate code or call box to get in'},
-  {k:'notify', i:'📞', l:'Notify first',     d:'Call the super/inspector before entering'},
-  {k:'orient', i:'🪪', l:'Orientation',      d:'Site orientation or badge required'},
-  {k:'permit', i:'📋', l:'Permit',           d:'Permit / ROW authorization before work'},
-  {k:'ppe',    i:'🦺', l:'Full PPE',         d:'Hard hat, vest, glasses, boots enforced'},
-  {k:'hours',  i:'🕖', l:'Hour limits',      d:'Restricted work window'},
-  {k:'escort', i:'🚧', l:'Escort',           d:'Escort or flagger required on site'},
-  {k:'mud',    i:'💧', l:'District',         d:'MUD / utility district requirements'},
-  {k:'flood',  i:'🌊', l:'Floodplain',       d:'Floodplain, LOMR or elevation cert work'},
-  {k:'tree',   i:'🌳', l:'Tree rules',       d:'Tree survey / protection ordinance'},
-  {k:'rail',   i:'🚂', l:'Railroad',         d:'Railroad ROW — flagging / permit'},
-  {k:'state',  i:'🛣️', l:'State ROW',        d:'DOT / state ROW permit needed'},
-  {k:'gps',    i:'🛰️', l:'RTN quirk',        d:'Poor RTN coverage / canopy — plan control'},
-  {k:'dog',    i:'🐕', l:'Loose dogs',       d:'Dogs or livestock on site'},
-  {k:'mudrd',  i:'🛻', l:'4WD',              d:'4WD / gets impassable when wet'},
-  {k:'water',  i:'🚤', l:'Water access',     d:'Boat, wading or tidal access involved'}
+  {k:'gate',   i:'🔒', l:'Security gate', d:'Gate, call box or guard shack to get in',
+   ph:'guard shack — crew names the day before'},
+  {k:'ppe',    i:'🦺', l:'Full PPE',      d:'PPE enforced on site',
+   ph:'hard hat, vest, glasses, boots'},
+  {k:'hours',  i:'🕖', l:'Hour limits',   d:'Restricted work window',
+   ph:'7am–5pm, no Sundays'},
+  {k:'flood',  i:'🌊', l:'Flood zone',    d:'Flood zone work — elevation certs, LOMR',
+   ph:'Zone AE along the creek'},
+  {k:'signal', i:'📵', l:'Poor signal',   d:'Cell or RTN coverage is bad here',
+   ph:'no service past the back section'}
 ];
 const FLAG=Object.fromEntries(FLAGS.map(f=>[f.k,f]));
 
@@ -1104,16 +1102,40 @@ function load(){
     }catch(e){console.error(e);toast('could not read saved data',1);}
   }
   DB.cities||=[];DB.jurs||=[];DB.subs||=[];
-  for(const s of DB.subs){s.reqs||=[];s.docs||=[];s.points||=[];s.flags||=[];s.crs||={};}
-  for(const j of DB.jurs){j.reqs||=[];j.docs||=[];j.flags||=[];j.crs||={};}
+  for(const s of DB.subs){
+    s.reqs||=[];s.docs||=[];s.points||=[];s.crs||={};
+    s.flags=normFlags(s.flags);
+    // "Lennar, Taylor Morrison" was one string; builders are a list now
+    if(typeof s.builder==='string'){s.builders=s.builder.split(/\s*,\s*/).filter(Boolean);delete s.builder;}
+    s.builders||=[];
+    // one contact, not two: the super becomes the contact, and anything in
+    // the old second field lands in notes rather than being dropped
+    if(s.superName!=null){s.contactName=s.contactName||s.superName;delete s.superName;}
+    if(s.superPhone!=null){s.contactPhone=s.contactPhone||s.superPhone;delete s.superPhone;}
+    if(s.contact){s.notes=(s.notes?s.notes+'\n':'')+'Contact: '+s.contact;delete s.contact;}
+  }
+  for(const j of DB.jurs){j.reqs||=[];j.docs||=[];j.crs||={};j.flags=normFlags(j.flags);}
+  // write the normalized shape straight back, so an old store is converted
+  // once on open rather than re-read and re-converted on every load
+  if(raw)save();
 }
+/* Flags are stored {key: detail} so "hour limits" can say which hours. This
+   reads the old array form too, and drops keys no longer in the catalog. */
+function normFlags(f){
+  const out={};
+  if(Array.isArray(f)){for(const k of f)if(FLAG[k])out[k]='';}
+  else if(f&&typeof f==='object'){for(const k of Object.keys(f))if(FLAG[k])out[k]=String(f[k]||'');}
+  return out;
+}
+const flagList=m=>Object.keys(m||{}).filter(k=>FLAG[k]).map(k=>({k,note:m[k]}));
+
 /* v1/v2 (a flat card wall keyed by sub name) → v3 (the filed library).
    Old intel is never dropped: it lands under "Unfiled" for you to move. */
 function migrate(d){
   if(d.version>=3)return d;
   const out={version:3,cities:[],jurs:[],subs:[]};
   const city={id:uid(),name:'Unfiled',state:'',notes:'Imported from Sub Intel v1 — drag these into real cities as you go.'};
-  const jur={id:uid(),cityId:city.id,name:'Unassigned jurisdiction',kind:'other',crs:{},reqs:[],docs:[],flags:[],notes:''};
+  const jur={id:uid(),cityId:city.id,name:'Unassigned jurisdiction',kind:'other',crs:{},reqs:[],docs:[],flags:{},notes:''};
   const oldSubs=Array.isArray(d.subs)?d.subs:[];
   const intel=d.intel||{};
   const seen=new Set();
@@ -1124,9 +1146,10 @@ function migrate(d){
     const it=intel[k]||{};
     out.subs.push({
       id:uid(),jurId:jur.id,name,lat:num(lat),lon:num(lon),
-      gate:it.gate||'',superName:it.superName||'',superPhone:it.superPhone||'',
-      builder:it.builder||'',access:it.access||'',notes:it.notes||'',
-      benchmark:it.benchmark||'',crs:{},flags:it.gate?['gate']:[],
+      gate:it.gate||'',contactName:it.superName||'',contactPhone:it.superPhone||'',
+      builders:(it.builder||'').split(/\s*,\s*/).filter(Boolean),
+      access:it.access||'',notes:it.notes||'',
+      benchmark:it.benchmark||'',crs:{},flags:it.gate?{gate:''}:{},
       reqs:[],docs:[],points:[],updatedAt:it.updatedAt||Date.now()
     });
   };
@@ -1150,9 +1173,11 @@ function pathOf(s){
   return [c?c.name:'—',j?j.name:'—'].join(' › ');
 }
 /* a sub's effective coordinate system: its own fields, else the jurisdiction's */
+/* Units, datums, geoid and combined factor are the same on every job we run,
+   so they aren't worth re-entering per jurisdiction. What varies is the zone
+   and what the job is actually held on. */
 const CRS_FIELDS=[
-  ['system','Coordinate system'],['hDatum','Horizontal datum'],['vDatum','Vertical datum'],
-  ['units','Units'],['csf','Combined factor'],['geoid','Geoid model'],['note','Control notes']
+  ['system','Coordinate system'],['note','Control notes']
 ];
 function effCrs(s){
   const j=jur(s.jurId)||{crs:{}};
@@ -1164,12 +1189,15 @@ function effCrs(s){
   }
   return out;
 }
-/* flags shown on a sub = its own + the ones its jurisdiction sets for everything under it */
+/* flags shown on a sub = its own + the ones its jurisdiction sets for everything
+   under it. A sub setting a flag the jurisdiction also sets overrides its detail. */
 function effFlags(s){
   const j=jur(s.jurId);
-  const own=new Set(s.flags||[]);
-  const inh=(j?.flags||[]).filter(k=>!own.has(k));
-  return {own:[...own],inherited:inh};
+  const own=s.flags||{};
+  const out={own:flagList(own),inherited:[]};
+  for(const k of Object.keys(j?.flags||{}))
+    if(FLAG[k]&&!(k in own))out.inherited.push({k,note:j.flags[k],from:j.name});
+  return out;
 }
 function allPoints(){
   const out=[];
@@ -1177,8 +1205,9 @@ function allPoints(){
   return out;
 }
 function countIntel(s){
-  return (s.gate?1:0)+(s.superName||s.superPhone?1:0)+(s.access?1:0)+(s.notes?1:0)+
-         (s.benchmark?1:0)+(s.flags||[]).length+(s.reqs||[]).length+(s.docs||[]).length+(s.points||[]).length;
+  return (s.gate?1:0)+(s.contactName||s.contactPhone?1:0)+(s.access?1:0)+(s.notes?1:0)+
+         (s.builders||[]).length+(s.benchmark?1:0)+Object.keys(s.flags||{}).length+
+         (s.reqs||[]).length+(s.docs||[]).length+(s.points||[]).length;
 }
 
 /* ══════════════════ routing ══════════════════
@@ -1264,11 +1293,14 @@ function wireCards(){
   }));
 }
 
-function flagRow(keys,cls){
-  if(!keys.length)return '';
-  return `<div class="flags">${keys.map(k=>{
-    const f=FLAG[k];if(!f)return '';
-    return `<span class="flag ${cls||''}" title="${esc(f.d)}"><span>${f.i}</span><span class="fl">${esc(f.l)}</span></span>`;
+function flagRow(items,cls){
+  if(!items||!items.length)return '';
+  return `<div class="flags">${items.map(({k,note,from})=>{
+    const f=FLAG[k];
+    if(!f)return '';
+    return `<span class="flag ${cls||''}" title="${esc(f.d)}${from?' — set by '+esc(from):''}">`
+      +`<span>${f.i}</span><span class="fl">${esc(f.l)}</span>`
+      +(note?`<span class="fn">${esc(note)}</span>`:'')+`</span>`;
   }).join('')}</div>`;
 }
 
@@ -1315,7 +1347,7 @@ function cityView(c){
         <span><b>${(j.reqs||[]).length}</b>requirements</span>
         <span><b>${(j.docs||[]).length}</b>documents</span>
       </div>
-      ${flagRow(j.flags||[])}
+      ${flagRow(flagList(j.flags))}
     </div>`;
   }).join('');
   return `<div class="view-head"><div><div class="view-title">${esc(c.name)}${c.state?`, ${esc(c.state)}`:''}</div>
@@ -1343,8 +1375,8 @@ function jurView(j){
     ${crs.length?`<div class="panel"><div class="panel-head"><h3>Coordinate system</h3><span class="n">applies to every sub below unless overridden</span></div>
       <div class="panel-body">${crsGrid(Object.fromEntries(crs.map(([k,v])=>[k,{v}])))}</div></div>`:''}
 
-    ${(j.flags||[]).length?`<div class="panel"><div class="panel-head"><h3>Applies jurisdiction-wide</h3></div>
-      <div class="panel-body">${flagRow(j.flags,'lg')}</div></div>`:''}
+    ${flagList(j.flags).length?`<div class="panel"><div class="panel-head"><h3>Applies jurisdiction-wide</h3></div>
+      <div class="panel-body">${flagRow(flagList(j.flags),'lg')}</div></div>`:''}
 
     ${reqPanel(j.reqs||[],'Requirements','jur',j.id)}
     ${docPanel(j.docs||[],'Documents to reference','jur',j.id)}
@@ -1362,7 +1394,7 @@ function subCard(s){
   return `<div class="card${filled?'':' empty-intel'}" data-go="#/s/${s.id}">
     <span class="edit-dot" data-stop onclick="event.stopPropagation();editSub(${q(s.id)})">edit</span>
     <div class="card-title">${esc(s.name)}</div>
-    ${s.builder?`<div class="card-meta">${esc(s.builder)}</div>`:''}
+    ${(s.builders||[]).length?`<div class="card-meta">${esc(s.builders.join(' · '))}</div>`:''}
     ${s.gate?`<div class="gate-row"><span class="gate-lbl">Gate</span>
         <span class="gate-code" data-stop data-copy="${esc(s.gate)}" data-copy-label="gate code" title="click to copy">${esc(s.gate)}</span></div>`:''}
     ${s.access?`<div class="warn-box">${esc(s.access)}</div>`:''}
@@ -1391,14 +1423,14 @@ function subView(s){
 
   return `<div class="detail-head">
     <div class="detail-title">${esc(s.name)}</div>
-    <div class="detail-where">${esc(c?c.name:'—')} › ${esc(j?j.name:'—')}${s.builder?` · ${esc(s.builder)}`:''}</div>
+    <div class="detail-where">${esc(c?c.name:'—')} › ${esc(j?j.name:'—')}</div>
     ${s.gate?`<div class="gate-row"><span class="gate-lbl">Gate</span>
       <span class="gate-code" data-copy="${esc(s.gate)}" data-copy-label="gate code" title="click to copy">${esc(s.gate)}</span></div>`:''}
     ${s.access?`<div class="warn-box">${esc(s.access)}</div>`:''}
-    ${(s.superName||s.superPhone||s.contact)?`<div class="contact-row">
-      ${s.superName?`<div class="contact"><span class="lbl">Superintendent</span>${esc(s.superName)}</div>`:''}
-      ${s.superPhone?`<div class="contact"><span class="lbl">Phone</span><a href="tel:${esc(s.superPhone.replace(/[^\d+]/g,''))}">${esc(s.superPhone)}</a></div>`:''}
-      ${s.contact?`<div class="contact"><span class="lbl">Other contact</span>${esc(s.contact)}</div>`:''}
+    ${(s.contactName||s.contactPhone||(s.builders||[]).length)?`<div class="contact-row">
+      ${s.contactName?`<div class="contact"><span class="lbl">Contact</span>${esc(s.contactName)}</div>`:''}
+      ${s.contactPhone?`<div class="contact"><span class="lbl">Phone</span><a href="tel:${esc(s.contactPhone.replace(/[^\d+]/g,''))}">${esc(s.contactPhone)}</a></div>`:''}
+      ${(s.builders||[]).length?`<div class="contact"><span class="lbl">Builder${s.builders.length>1?'s':''}</span>${esc(s.builders.join(' · '))}</div>`:''}
     </div>`:''}
     ${(f.own.length||f.inherited.length)?`<div style="margin-top:11px">${flagRow(f.own,'lg')}${flagRow(f.inherited,'lg inherit')}</div>`:''}
     <div class="modal-actions" style="justify-content:flex-start;margin-top:13px">
@@ -1667,37 +1699,45 @@ function actions(delFn,saveFn,delLabel){
     <button class="btn" onclick="closeModal()">cancel</button>
     <button class="btn btn-primary" onclick="${saveFn}">save</button></div>`;
 }
-function flagPicker(selected){
-  return `<div class="flagpick" id="flagPick">${FLAGS.map(f=>
-    `<button type="button" class="${selected.includes(f.k)?'on':''}" data-flag="${f.k}" title="${esc(f.d)}"
-      onclick="this.classList.toggle('on')"><span>${f.i}</span>${esc(f.l)}</button>`).join('')}</div>`;
+function flagPicker(map){
+  const m=map||{};
+  return `<div class="flagpick" id="flagPick">${FLAGS.map(f=>{
+    const on=f.k in m;
+    return `<div class="flagopt${on?' on':''}" data-flag="${f.k}">
+      <button type="button" onclick="toggleFlagOpt(this)"><span>${f.i}</span>${esc(f.l)}</button>
+      <input type="text" placeholder="${esc(f.ph)}" value="${esc(m[f.k]||'')}"${on?'':' hidden'}>
+    </div>`;
+  }).join('')}</div>`;
 }
-const pickedFlags=()=>[...document.querySelectorAll('#flagPick button.on')].map(b=>b.dataset.flag);
+function toggleFlagOpt(btn){
+  const row=btn.parentElement;
+  const on=row.classList.toggle('on');
+  const inp=row.querySelector('input');
+  inp.hidden=!on;
+  if(on)inp.focus();
+}
+function pickedFlags(){
+  const out={};
+  document.querySelectorAll('#flagPick .flagopt.on').forEach(r=>{
+    out[r.dataset.flag]=r.querySelector('input').value.trim();
+  });
+  return out;
+}
 function crsFields(crs,ph){
-  return `<div class="cols">
-      <div><label>Coordinate system</label><input type="text" id="cSystem" value="${esc(crs.system||'')}" placeholder="${esc(ph?.system||'e.g. TX South Central 4204')}"></div>
-      <div><label>Units</label><input type="text" id="cUnits" value="${esc(crs.units||'')}" placeholder="${esc(ph?.units||'US survey feet')}"></div>
-    </div>
-    <div class="cols">
-      <div><label>Horizontal datum</label><input type="text" id="cHDatum" value="${esc(crs.hDatum||'')}" placeholder="${esc(ph?.hDatum||'NAD83(2011) epoch 2010.00')}"></div>
-      <div><label>Vertical datum</label><input type="text" id="cVDatum" value="${esc(crs.vDatum||'')}" placeholder="${esc(ph?.vDatum||'NAVD88')}"></div>
-    </div>
-    <div class="cols">
-      <div><label>Geoid model</label><input type="text" id="cGeoid" value="${esc(crs.geoid||'')}" placeholder="${esc(ph?.geoid||'GEOID18')}"></div>
-      <div><label>Combined factor</label><input type="text" id="cCsf" value="${esc(crs.csf||'')}" placeholder="${esc(ph?.csf||'0.99988123')}"></div>
-    </div>
+  return `<label>Coordinate system</label>
+    <input type="text" id="cSystem" value="${esc(crs.system||'')}" placeholder="${esc(ph?.system||'e.g. Florida East 0901')}">
+    <div class="hint">Units, datums, geoid and combined factor are the same on every job we run, so they aren't asked for here.</div>
     <label>Control notes</label>
     <textarea id="cNote" placeholder="site calibration, which BMs the job is held on, surface vs grid…">${esc(crs.note||'')}</textarea>`;
 }
 function readCrs(){
-  const c={system:val('cSystem'),units:val('cUnits'),hDatum:val('cHDatum'),vDatum:val('cVDatum'),
-           geoid:val('cGeoid'),csf:val('cCsf'),note:val('cNote')};
+  const c={system:val('cSystem'),note:val('cNote')};
   for(const k of Object.keys(c))if(!c[k])delete c[k];
   return c;
 }
 
-/* ── city ── */
 let editing=null;
+/* ── city ── */
 function editCity(id){
   const c=id?city(id):null;editing=c;
   openModal(`<h2>${c?'Edit city':'New city'}</h2>
@@ -1794,13 +1834,12 @@ function editSub(id,jurId){
     <label>Gate code</label>
     <input type="text" id="fGate" value="${esc(s?.gate||'')}" placeholder="#1234 / call box / none">
     <div class="cols">
-      <div><label>Superintendent</label><input type="text" id="fSuper" value="${esc(s?.superName||'')}" placeholder="name"></div>
-      <div><label>Super phone</label><input type="tel" id="fPhone" value="${esc(s?.superPhone||'')}" placeholder="555-555-5555"></div>
+      <div><label>Contact</label><input type="text" id="fContactName" value="${esc(s?.contactName||'')}" placeholder="super, inspector, whoever answers"></div>
+      <div><label>Phone</label><input type="tel" id="fContactPhone" value="${esc(s?.contactPhone||'')}" placeholder="555-555-5555"></div>
     </div>
-    <div class="cols">
-      <div><label>Builder(s)</label><input type="text" id="fBuilder" value="${esc(s?.builder||'')}" placeholder="Lennar, Taylor Morrison"></div>
-      <div><label>Other contact</label><input type="text" id="fContact" value="${esc(s?.contact||'')}" placeholder="inspector, HOA, guard shack"></div>
-    </div>
+    <label>Builders</label>
+    <div id="builderRows"></div>
+    <button class="btn btn-sm" type="button" onclick="addBuilder()" style="margin-top:6px">+ builder</button>
     <label>Access warning — shown highlighted</label>
     <input type="text" id="fAccess" value="${esc(s?.access||'')}" placeholder="call super before entering · no entry before 7am">
     <div class="subhead">What this sub requires</div>
@@ -1810,6 +1849,23 @@ function editSub(id,jurId){
     <div class="subhead">Notes</div>
     <textarea id="fNotes" placeholder="lot numbering quirks, parking, where it turns to mud…">${esc(s?.notes||'')}</textarea>
     ${actions(s?`delSub('${s.id}')`:'','saveSub()')}`,'fName');
+  builderRows=(s?.builders||[]).slice();
+  renderBuilders();
+}
+let builderRows=[];
+function renderBuilders(){
+  const box=el('builderRows');
+  if(!box)return;
+  box.innerHTML=builderRows.length?builderRows.map((b,i)=>`<div class="cols" style="margin-top:5px">
+      <div><input type="text" placeholder="e.g. Lennar" value="${esc(b)}" oninput="builderRows[${i}]=this.value"></div>
+      <button class="btn btn-sm btn-danger" type="button" onclick="builderRows.splice(${i},1);renderBuilders()">×</button>
+    </div>`).join(''):`<div class="hint" style="margin-top:2px">None listed.</div>`;
+}
+function addBuilder(){
+  builderRows.push('');
+  renderBuilders();
+  const ins=document.querySelectorAll('#builderRows input');
+  ins[ins.length-1]?.focus();
 }
 function maybeLinkCoords(){
   if(editing)return;
@@ -1825,8 +1881,8 @@ function saveSub(){
   if(dupe)return toast('that sub already exists here',1);
   const data={
     name,jurId:jid,lat:num(val('fLat')),lon:num(val('fLon')),
-    gate:val('fGate'),superName:val('fSuper'),superPhone:val('fPhone'),
-    builder:val('fBuilder'),contact:val('fContact'),access:val('fAccess'),
+    gate:val('fGate'),contactName:val('fContactName'),contactPhone:val('fContactPhone'),
+    builders:builderRows.map(b=>b.trim()).filter(Boolean),access:val('fAccess'),
     flags:pickedFlags(),benchmark:val('fBenchmark'),notes:val('fNotes'),updatedAt:Date.now()
   };
   if(editing)Object.assign(editing,data);
@@ -2040,7 +2096,8 @@ function searchView(){
 
   for(const j of DB.jurs){
     const c=city(j.cityId);
-    const hay=[j.name,c?.name,j.notes,j.crs?.system,...(j.flags||[]).map(k=>FLAG[k]?.l)].join(' ');
+    const hay=[j.name,c?.name,j.notes,j.crs?.system,
+               ...flagList(j.flags).map(f=>FLAG[f.k].l+' '+f.note)].join(' ');
     if(matches(hay,terms))G.jurs.rows.push({name:j.name,path:c?c.name:'—',go:`#/j/${j.id}`});
     for(const r of (j.reqs||[]))
       if(matches([r.title,r.detail].join(' '),terms))
@@ -2051,8 +2108,9 @@ function searchView(){
   }
 
   for(const s of DB.subs){
-    const hay=[s.name,s.gate,s.superName,s.superPhone,s.builder,s.contact,s.access,s.benchmark,s.notes,
-               pathOf(s),...(s.flags||[]).map(k=>FLAG[k]?.l)].join(' ');
+    const hay=[s.name,s.gate,s.contactName,s.contactPhone,(s.builders||[]).join(' '),
+               s.access,s.benchmark,s.notes,pathOf(s),
+               ...flagList(s.flags).map(f=>FLAG[f.k].l+' '+f.note)].join(' ');
     if(matches(hay,terms))
       G.subs.rows.push({name:s.name,path:pathOf(s)+(s.gate?` · gate ${s.gate}`:''),go:`#/s/${s.id}`});
     for(const p of (s.points||[]))
@@ -2181,7 +2239,7 @@ function mergeIn(d){
     if(ex){
       jurIdMap[j.id]=ex.id;
       ex.crs={...ex.crs,...j.crs};
-      ex.flags=[...new Set([...(ex.flags||[]),...(j.flags||[])])];
+      ex.flags={...ex.flags,...normFlags(j.flags)};
       ex.reqs=mergeList(ex.reqs,j.reqs,'title');
       ex.docs=mergeList(ex.docs,j.docs,'title');
       ex.notes=ex.notes||j.notes;
@@ -2194,11 +2252,12 @@ function mergeIn(d){
     const jid=jurIdMap[s.jurId]||DB.jurs[0]?.id;
     const ex=DB.subs.find(x=>normKey(x.name)===normKey(s.name)&&x.jurId===jid);
     if(ex){
-      for(const k of ['gate','superName','superPhone','builder','contact','access','benchmark','notes'])
+      for(const k of ['gate','contactName','contactPhone','access','benchmark','notes'])
         if(s[k])ex[k]=s[k];
       if(s.lat!=null){ex.lat=s.lat;ex.lon=s.lon;}
       ex.crs={...ex.crs,...s.crs};
-      ex.flags=[...new Set([...(ex.flags||[]),...(s.flags||[])])];
+      ex.flags={...ex.flags,...normFlags(s.flags)};
+      ex.builders=[...new Set([...(ex.builders||[]),...(s.builders||[])])];
       ex.reqs=mergeList(ex.reqs,s.reqs,'title');
       ex.docs=mergeList(ex.docs,s.docs,'title');
       ex.points=mergeList(ex.points,s.points,'name');
@@ -2228,11 +2287,10 @@ function wipe(){
    ═══════════════════════════════════════════════ */
 function loadDemo(){
   if(DB.cities.length&&!confirm('Add the example city alongside what you already have?'))return;
-  const c={id:uid(),name:'Houston',state:'TX',notes:'Example data — erase it when the real library starts.'};
-  const harris={id:uid(),cityId:c.id,name:'Harris County',kind:'county',
-    crs:{system:'NAD83 Texas South Central 4204',units:'US survey feet',hDatum:'NAD83(2011) epoch 2010.00',
-         vDatum:'NAVD88',geoid:'GEOID18',csf:'0.99988123'},
-    flags:['permit','ppe'],
+  const c={id:uid(),name:'Orlando',state:'FL',notes:'Example data — erase it when the real library starts.'};
+  const orange={id:uid(),cityId:c.id,name:'Orange County',kind:'county',
+    crs:{system:'Florida East 0901'},
+    flags:{ppe:'hard hat and vest inside the fence, no exceptions'},
     reqs:[
       {id:uid(),title:'ROW permit before any work in county right of way',sev:'critical',
        detail:'Permits office, 10 business days. The permit number goes on the field notes.'},
@@ -2242,52 +2300,58 @@ function loadDemo(){
        detail:'One is a check, not a tie. The county rejects single-BM vertical.'}
     ],
     docs:[
-      {id:uid(),title:'Harris County construction standards',kind:'spec',url:'https://example.org/standards.pdf'},
+      {id:uid(),title:'Orange County construction standards',kind:'spec',url:'https://example.org/standards.pdf'},
       {id:uid(),title:'ROW permit application',kind:'permit',url:'https://example.org/row-permit'},
       {id:uid(),title:'County benchmark index',kind:'bm',url:'https://example.org/bm-index'}
     ],
     notes:'Plan check runs two weeks in the spring. Submit early.'};
-  const katy={id:uid(),cityId:c.id,name:'City of Katy',kind:'city',
-    crs:{system:'NAD83 Texas South Central 4204',units:'US survey feet',vDatum:'NAVD88',geoid:'GEOID18'},
-    flags:['tree','notify'],
+  const apopka={id:uid(),cityId:c.id,name:'Apopka',kind:'city',
+    crs:{system:'Florida East 0901'},
+    flags:{hours:'7am–6pm weekdays, no Sunday work'},
     reqs:[{id:uid(),title:'Tree survey required with any plat',sev:'required',
       detail:'Everything 6" DBH and up inside the limits, species and size called out.'}],
-    docs:[{id:uid(),title:'Katy subdivision ordinance',kind:'spec',url:'https://example.org/katy-ordinance'}],
+    docs:[{id:uid(),title:'Apopka subdivision ordinance',kind:'spec',url:'https://example.org/apopka-ordinance'}],
     notes:''};
   const subs=[
-    {id:uid(),jurId:harris.id,name:'Cane Island — Section 14',lat:29.7955,lon:-95.8241,
-     gate:'#4471',superName:'Ray Alvarez',superPhone:'281-555-0142',builder:'Perry Homes, Highland',
-     access:'Call the super before entering — no entry before 7am',
-     flags:['gate','notify','mudrd'],crs:{},
+    {id:uid(),jurId:orange.id,name:'Wekiva Reserve — Phase 3',lat:28.7051,lon:-81.5108,
+     gate:'#4471',contactName:'Ray Alvarez',contactPhone:'407-555-0142',
+     builders:['Pulte','M/I Homes'],
+     access:'Call the contact before entering — no entry before 7am',
+     flags:{gate:'guard shack — crew names the day before',
+            signal:'no service past the back half, download before you go in'},
+     crs:{},
      benchmark:'County BM on the box culvert at the entrance is the hold. TBM-1 is the working BM at the model.',
-     notes:'Lot numbering runs backward off Cane Island Pkwy. Back half is impassable for a day after rain.',
+     notes:'Lot numbering runs backward off the main entry. Back half is impassable for a day after rain.',
      reqs:[{id:uid(),title:'Guard shack needs the crew names the day before',sev:'required',
-            detail:'Text the super the list. Walk-ins get turned around.'}],
-     docs:[{id:uid(),title:'Section 14 recorded plat',kind:'plat',url:'https://example.org/cane-14-plat.pdf'},
-           {id:uid(),title:'Section 14 paving plans',kind:'plan',url:'https://example.org/cane-14-plans.pdf'}],
+            detail:'Text the contact the list. Walk-ins get turned around.'}],
+     docs:[{id:uid(),title:'Phase 3 recorded plat',kind:'plat',url:'https://example.org/wekiva-3-plat.pdf'},
+           {id:uid(),title:'Phase 3 paving plans',kind:'plan',url:'https://example.org/wekiva-3-plans.pdf'}],
      points:[
-       {id:uid(),type:'BM',name:'HC BM 4327',lat:29.7948,lon:-95.8262,elev:'128.44',elevDatum:'NAVD88 GEOID18',
-        desig:'HC-4327',setBy:'Harris County',mon:'brass disk in culvert headwall',
+       {id:uid(),type:'BM',name:'OC BM 4327',lat:28.7044,lon:-81.5129,elev:'112.44',elevDatum:'NAVD88 GEOID18',
+        desig:'OC-4327',setBy:'Orange County',mon:'brass disk in culvert headwall',
         desc:'Top of the box culvert headwall, N side of the entrance drive.',
-        docs:[{id:uid(),title:'HC 4327 datasheet',kind:'bm',url:'https://example.org/hc4327.pdf'}]},
-       {id:uid(),type:'TBM',name:'TBM-1',lat:29.7957,lon:-95.8235,elev:'130.12',elevDatum:'NAVD88 GEOID18',
-        setBy:'Field crew 3',setOn:'2025-08-14',mon:'5/8" iron rod w/ orange cap',
+        docs:[{id:uid(),title:'OC 4327 datasheet',kind:'bm',url:'https://example.org/oc4327.pdf'}]},
+       {id:uid(),type:'TBM',name:'TBM-1',lat:28.7053,lon:-81.5102,elev:'114.12',elevDatum:'NAVD88 GEOID18',
+        setBy:'Field crew 3',setOn:'2026-08-14',mon:'5/8" iron rod w/ orange cap',
         desc:'NE corner of the model home island, 3 ft S of the hydrant.',
         docs:[{id:uid(),title:'TBM-1 card + photo',kind:'bm',url:'https://example.org/tbm1.pdf'}]},
-       {id:uid(),type:'TBM',name:'TBM-2',lat:29.7969,lon:-95.8219,elev:'129.87',elevDatum:'NAVD88 GEOID18',
-        setBy:'Field crew 3',setOn:'2025-08-14',mon:'mag nail in curb',
+       {id:uid(),type:'TBM',name:'TBM-2',lat:28.7065,lon:-81.5086,elev:'113.87',elevDatum:'NAVD88 GEOID18',
+        setBy:'Field crew 3',setOn:'2026-08-14',mon:'mag nail in curb',
         desc:'Back of curb at the Lot 41 driveway return.',docs:[]}
      ],updatedAt:Date.now()},
-    {id:uid(),jurId:katy.id,name:'Elyson — Section 22',lat:29.8121,lon:-95.8188,
-     gate:'',superName:'Dana Whitfield',superPhone:'832-555-0119',builder:'Westin, Chesmar',
-     access:'',flags:['tree','ppe'],crs:{system:'NAD83 Texas South Central 4204 — site calibration on file'},
+    {id:uid(),jurId:apopka.id,name:'Sandpiper Landing — Phase 2',lat:28.7217,lon:-81.5055,
+     gate:'',contactName:'Dana Whitfield',contactPhone:'407-555-0119',
+     builders:['Dream Finders','Meritage'],
+     access:'',
+     flags:{flood:'Zone AE along the west boundary — elevation certs on those lots'},
+     crs:{system:'Florida East 0901 — site calibration on file'},
      benchmark:'',notes:'Park the trucks at the amenity lot; the entry loop tickets after 8am.',
      reqs:[],docs:[],
-     points:[{id:uid(),type:'TBM',name:'TBM-A',lat:29.8118,lon:-95.8201,elev:'142.03',elevDatum:'NAVD88 GEOID18',
-        setBy:'Field crew 1',setOn:'2025-06-02',mon:'5/8" iron rod w/ cap',
+     points:[{id:uid(),type:'TBM',name:'TBM-A',lat:28.7214,lon:-81.5068,elev:'126.03',elevDatum:'NAVD88 GEOID18',
+        setBy:'Field crew 1',setOn:'2026-06-02',mon:'5/8" iron rod w/ cap',
         desc:'S side of the amenity lot entrance.',docs:[]}],updatedAt:Date.now()}
   ];
-  DB.cities.push(c);DB.jurs.push(harris,katy);DB.subs.push(...subs);
+  DB.cities.push(c);DB.jurs.push(orange,apopka);DB.subs.push(...subs);
   save();closeModal();go('#/c/'+c.id);render();
   toast('example data loaded');
 }

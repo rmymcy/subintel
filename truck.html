@@ -82,10 +82,10 @@ main{flex:1;overflow-y:auto;padding:14px;-webkit-overflow-scrolling:touch}
 svg.plan{width:100%;height:auto;display:block;background:var(--bg);border-radius:var(--radius)}
 .zone-rect{cursor:pointer;transition:opacity .1s}
 .zone-rect:hover{opacity:.85}
-.zone-lbl{font-size:9px;font-weight:700;fill:var(--text);pointer-events:none;font-family:var(--font)}
-.zone-sub{font-size:7.5px;fill:var(--muted);pointer-events:none;font-family:var(--mono)}
+.zone-lbl{font-size:3.1px;font-weight:700;fill:var(--text);pointer-events:none;font-family:var(--font)}
+.zone-sub{font-size:2.3px;fill:var(--muted);pointer-events:none;font-family:var(--mono)}
 .truck-body{fill:none;stroke:var(--border);stroke-width:2}
-.truck-note{font-size:8px;fill:var(--faint);font-family:var(--font)}
+.truck-note{font-size:2.6px;fill:var(--faint);font-family:var(--font)}
 
 /* lists */
 .row{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border-soft);font-size:12.5px}
@@ -154,7 +154,6 @@ tr.dead td{opacity:.4}
 
 <div id="tabs">
   <button class="tab on" data-tab="layout" onclick="setTab('layout')">Layout</button>
-  <button class="tab" data-tab="kits" onclick="setTab('kits')">Bags &amp; kits</button>
   <button class="tab" data-tab="tools" onclick="setTab('tools')">Tools</button>
   <button class="tab" data-tab="zones" onclick="setTab('zones')">Truck zones</button>
   <button class="tab" data-tab="sheet" onclick="setTab('sheet')">Layout sheet</button>
@@ -179,70 +178,97 @@ tr.dead td{opacity:.4}
 const DB_KEY='truckLabDB';
 const THEME_KEY='truckLabTheme';
 
-/* Zones: where a thing can live. reach = seconds to walk to it, open it,
-   get the tool out and be back at the work. rear = share of this zone's
-   weight the rear axle carries (behind the axle is over 1). */
+/* The truck: 2021 Tacoma Access Cab. That is the 6-foot bed —
+   73.7" long, 56.7" wide at the rails, 41.5" between the wheel wells,
+   19.1" deep, about 49 cu ft. Overall 212.3" long, 74.4" wide. Payload
+   is trim-dependent; 1,175 lb is the common figure and it is editable.
+   Access Cab matters here: the back is jump seats behind rear-hinged
+   half doors, so it is small AND slow to get into — you have to open
+   the front door first. That is why cabJ costs 30 seconds.
+   All plan coordinates below are inches. */
+const TRUCK={name:'2021 Toyota Tacoma — Access Cab, 6\' bed',
+  bedL:73.7, bedW:56.7, bedWells:41.5, bedD:19.1, bedCuFt:49.4, payload:1175};
+
 const SEED_ZONES=[
-  {id:'tail', name:'Bed floor — tailgate',  reach:6,  vol:12, lbs:300, rear:1.02, x:78, y:436, w:156,h:146},
-  {id:'railD',name:'Rail box — driver',     reach:11, vol:4,  lbs:100, rear:0.85, x:20, y:436, w:54, h:110},
-  {id:'railP',name:'Rail box — passenger',  reach:11, vol:4,  lbs:100, rear:0.85, x:238,y:436, w:54, h:110},
-  {id:'xoD',  name:'Crossover box — driver',reach:15, vol:5,  lbs:150, rear:0.72, x:20, y:276, w:130,h:54},
-  {id:'xoP',  name:'Crossover box — pass',  reach:15, vol:5,  lbs:150, rear:0.72, x:162,y:276, w:130,h:54},
-  {id:'bedF', name:'Bed floor — front',     reach:24, vol:14, lbs:400, rear:0.78, x:20, y:336, w:272,h:94},
-  {id:'cabF', name:'Cab — passenger floor', reach:19, vol:4,  lbs:60,  rear:0.30, x:162,y:120, w:130,h:68},
-  {id:'cabR', name:'Cab — back seat',       reach:26, vol:9,  lbs:120, rear:0.38, x:20, y:196, w:272,h:60},
-  {id:'rack', name:'Ladder rack / roof',    reach:48, vol:20, lbs:200, rear:0.55, x:20, y:40,  w:272,h:70}
+  {id:'tail', name:'Bed floor — tailgate',    ab:'Tailgate',   reach:6,  vol:14.9,lbs:300,rear:1.02,slots:5, long:true,  x:10,  y:163, w:56.7,h:22.7},
+  {id:'railD',name:'Rail box — driver',       ab:'Rail D',     reach:11, vol:2.1, lbs:90, rear:0.86,slots:7, long:false, x:10,  y:138, w:9,   h:24},
+  {id:'railP',name:'Rail box — passenger',    ab:'Rail P',     reach:11, vol:2.1, lbs:90, rear:0.86,slots:7, long:false, x:57.7,y:138, w:9,   h:24},
+  {id:'xover',name:'Crossover box (headboard)',ab:'Crossover', reach:14, vol:6,   lbs:150,rear:0.74,slots:10,long:true,  x:10,  y:113, w:56.7,h:11},
+  {id:'bedM', name:'Bed floor — between wells',ab:'Between wells',reach:16,vol:13.8,lbs:300,rear:0.84,slots:5,long:true, x:20,  y:138, w:36.7,h:24},
+  {id:'cabF', name:'Cab — passenger floor',   ab:'Pass floor', reach:19, vol:4,   lbs:60, rear:0.30,slots:4, long:false, x:42,  y:62,  w:25,  h:20},
+  {id:'bedF', name:'Bed floor — front',       ab:'Bed front',  reach:26, vol:7,   lbs:250,rear:0.76,slots:4, long:true,  x:10,  y:125, w:56.7,h:12},
+  {id:'cabJ', name:'Cab — jump seats',        ab:'Jump seats', reach:30, vol:4,   lbs:80, rear:0.38,slots:4, long:true,  x:10,  y:86,  w:57,  h:20},
+  {id:'rack', name:'Bed rack — overhead',     ab:'Bed rack',   reach:40, vol:10,  lbs:150,rear:0.75,slots:4, long:true,  x:10,  y:3,   w:56.7,h:14}
 ];
 
-/* Tasks: what a crew actually does in a day, and what each one needs.
-   jobs = how many of that task this truck runs per day. */
-const SEED_TASKS=[
-  {id:'form',  name:'Form survey',       jobs:4, tools:['gps','dc','pk','tape100','tape25','paint','flag','belt','string','vest','plans','cones']},
-  {id:'final', name:'Final w/ swale',    jobs:3, tools:['gps','dc','rod','tape100','tape25','paint','plans','vest']},
-  {id:'grade', name:'Grade staking',     jobs:3, tools:['gps','dc','hubs','lath','stakes','sledge','hatchet','paint','flag','plans','vest']},
-  {id:'env',   name:'Building envelope', jobs:2, tools:['gps','dc','hubs','lath','sledge','hatchet','machete','paint','flag','plans']},
-  {id:'slab',  name:'Slab / finish floor',jobs:2,tools:['gps','dc','rod','pk','tape25','paint','belt','plans','vest']},
-  {id:'bound', name:'Boundary / lot check',jobs:1,tools:['gps','dc','base','rebar','sledge','machete','shovel','tape100','paint','flag','plans']}
-];
+/* The actual kit. Two different animals live in this list and the split
+   matters more than anything else in the model:
 
-/* Tools. vol is rough cubic feet, trips is how many times a day somebody
-   goes and gets it. bag = can it live in a carry bag. */
+   WORKING SUPPLY — what goes to the lot. Small, light, grabbed all day.
+   WEEK STOCK — the bundles. Heavy, bulky, touched once or twice a day to
+   refill the working supply. Optimizing these two the same way is how a
+   truck ends up with 120 lb of hubs in the easiest spot in the bed and
+   the hammer buried behind it.
+
+   long:true means it will not go in a rail box — 48" lath, the grade
+   stick, a rover pole. The crossover is 56.7" wide, so lath does fit
+   there; that is not an accident of the model, it is the bed. */
 const SEED_TOOLS=[
-  {id:'gps',    name:'GPS rover + pole',        cat:'instrument', vol:1.8, lbs:18, trips:12, bag:false},
-  {id:'dc',     name:'Data collector',          cat:'instrument', vol:0.3, lbs:3,  trips:12, bag:true},
-  {id:'base',   name:'Base receiver + tripod',  cat:'instrument', vol:3.5, lbs:32, trips:2,  bag:false},
-  {id:'plans',  name:'Tablet / plans',          cat:'instrument', vol:0.3, lbs:3,  trips:14, bag:true},
-  {id:'batt',   name:'Batteries + chargers',    cat:'instrument', vol:0.6, lbs:8,  trips:3,  bag:true},
-  {id:'hubs',   name:'Hubs',                    cat:'stakes',     vol:1.5, lbs:25, trips:6,  bag:true},
-  {id:'lath',   name:'Lath bundle',             cat:'stakes',     vol:2.5, lbs:20, trips:6,  bag:false},
-  {id:'stakes', name:'2x2 stakes',              cat:'stakes',     vol:3.0, lbs:30, trips:4,  bag:false},
-  {id:'rebar',  name:'Rebar + caps',            cat:'stakes',     vol:1.8, lbs:35, trips:2,  bag:false},
-  {id:'sledge', name:'Sledge (3 lb)',           cat:'hand',       vol:0.4, lbs:4,  trips:8,  bag:true},
-  {id:'hatchet',name:'Hatchet',                 cat:'hand',       vol:0.2, lbs:3,  trips:6,  bag:true},
-  {id:'machete',name:'Machete',                 cat:'hand',       vol:0.3, lbs:3,  trips:3,  bag:true},
-  {id:'shovel', name:'Shovel',                  cat:'hand',       vol:1.2, lbs:5,  trips:2,  bag:false},
-  {id:'paint',  name:'Marking paint (case)',    cat:'marking',    vol:1.0, lbs:12, trips:10, bag:true},
-  {id:'flag',   name:'Flagging tape',           cat:'marking',    vol:0.3, lbs:2,  trips:8,  bag:true},
-  {id:'pk',     name:'PK nails / tacks',        cat:'marking',    vol:0.15,lbs:3,  trips:6,  bag:true},
-  {id:'tape100',name:"100' tape",               cat:'measure',    vol:0.5, lbs:4,  trips:5,  bag:true},
-  {id:'tape25', name:"25' tape",                cat:'measure',    vol:0.1, lbs:1,  trips:10, bag:true},
-  {id:'rod',    name:'Level rod',               cat:'measure',    vol:1.0, lbs:6,  trips:4,  bag:false},
-  {id:'string', name:'String line / plumb bob', cat:'measure',    vol:0.2, lbs:2,  trips:3,  bag:true},
-  {id:'belt',   name:'Nail apron / tool belt',  cat:'hand',       vol:0.5, lbs:5,  trips:4,  bag:true},
-  {id:'cones',  name:'Traffic cones (4)',       cat:'safety',     vol:2.5, lbs:12, trips:3,  bag:false},
-  {id:'vest',   name:'Vest + hard hat',         cat:'safety',     vol:0.8, lbs:4,  trips:2,  bag:true},
-  {id:'water',  name:'Water cooler',            cat:'safety',     vol:2.0, lbs:25, trips:6,  bag:false},
-  {id:'aid',    name:'First aid kit',           cat:'safety',     vol:0.5, lbs:4,  trips:0.2,bag:true}
+  // working supply
+  {id:'lathbag', name:'Lath bag (working kit)',      cat:'working', vol:1.5, lbs:25, trips:9,  long:true},
+  {id:'hammer',  name:'Framing hammer',              cat:'working', vol:0.15,lbs:2,  trips:9},
+  {id:'pinflag', name:'Pink pin flags — working',    cat:'working', vol:0.25,lbs:3,  trips:9},
+  {id:'marker',  name:'Marker / lumber crayon',      cat:'working', vol:0.05,lbs:0.5,trips:8},
+  {id:'flagging',name:'Flagging tape',               cat:'working', vol:0.3, lbs:3,  trips:8},
+  {id:'tacks',   name:'Tacks',                       cat:'working', vol:0.1, lbs:2,  trips:7},
+  {id:'laser',   name:'Level laser',                 cat:'working', vol:0.8, lbs:12, trips:5},
+  {id:'gradestk',name:'Grade stick for the laser',   cat:'working', vol:0.6, lbs:5,  trips:5,  long:true},
+  {id:'rebar',   name:'Rebar 5/8" × 12" + caps',     cat:'working', vol:0.6, lbs:28, trips:3},
+  {id:'tape25',  name:"25' tape",                    cat:'working', vol:0.1, lbs:1,  trips:8},
+  {id:'tape100', name:"100' tape",                   cat:'working', vol:0.5, lbs:4,  trips:4},
+  // instruments
+  {id:'gps',     name:'GPS rover + pole',            cat:'instrument',vol:1.8,lbs:18,trips:12, long:true},
+  {id:'dc',      name:'Data collector',              cat:'instrument',vol:0.3,lbs:3, trips:12},
+  {id:'plans',   name:'Tablet / plans',              cat:'instrument',vol:0.3,lbs:3, trips:12},
+  {id:'batt',    name:'Batteries + chargers',        cat:'instrument',vol:0.5,lbs:7, trips:3},
+  // truck stuff
+  {id:'water',   name:'Water cooler',                cat:'truck',   vol:2.0, lbs:25, trips:6},
+  {id:'cones',   name:'Traffic cones (4)',           cat:'truck',   vol:2.5, lbs:12, trips:3},
+  {id:'vest',    name:'Vest + hard hat',             cat:'truck',   vol:0.8, lbs:4,  trips:2},
+  {id:'shovel',  name:'Shovel',                      cat:'truck',   vol:1.2, lbs:5,  trips:2,  long:true},
+  {id:'machete', name:'Machete',                     cat:'truck',   vol:0.3, lbs:3,  trips:2},
+  // a week of stock
+  {id:'lathbulk',name:'Lath 1/2×2×48 — 2 bundles',   cat:'stock',   vol:2.8, lbs:85, trips:1.5,long:true},
+  {id:'hubbulk', name:'Hubs 2×2×12 — 2 bundles',     cat:'stock',   vol:2.8, lbs:120,trips:1.5},
+  {id:'flagbulk',name:'Pin flags — 5 bundles',       cat:'stock',   vol:2.0, lbs:40, trips:1},
+  {id:'suppbulk',name:'Tacks / flagging / caps — stock',cat:'stock',vol:1.0, lbs:12, trips:0.5}
 ];
+
+/* Roughly how a truck is packed today — the baseline the optimizer gets
+   compared against. Change it to match yours before reading anything
+   into the before/after number. */
+const SEED_PLACE={
+  lathbag:'tail', hammer:'tail', gps:'tail', water:'tail',
+  pinflag:'railP', flagging:'railP', tacks:'railP',
+  rebar:'railD', machete:'railD',
+  batt:'xover', tape100:'xover', suppbulk:'xover',
+  marker:'cabF', dc:'cabF', plans:'cabF', tape25:'cabF',
+  laser:'cabJ', vest:'cabJ',
+  gradestk:'bedM', shovel:'bedM',
+  cones:'bedF', hubbulk:'bedF',
+  lathbulk:'rack', flagbulk:'rack'
+};
 
 /* how bad it is to have a tool with no home — you dig for it */
 const LOOSE_REACH=50;
 /* a zone past this full starts costing extra: things get buried */
-const CRAM_START=0.6, CRAM_COST=1.6;
-/* what a crew-carryable bag can hold before it's a second trip anyway */
-const BAG_LBS=35, BAG_VOL=2.2;
-
-let DB={zones:[],tools:[],tasks:[],place:{},kits:[]};
+const CRAM_START=0.5, CRAM_COST=2.2;
+/* Slots are how many separate things can live somewhere and still be
+   found at a glance. A divided box has plenty; an open bed floor has
+   about four, because after that it is a pile you dig through. Every
+   item past a zone's slots adds this many seconds to everything in it. */
+const RUMMAGE=3.0;
+let DB={zones:[],tools:[],place:{}};
 let tab='layout', selTool=null, selZone=null, lastOpt=null;
 
 const uid=()=>Math.random().toString(36).slice(2,8);
@@ -261,97 +287,81 @@ function load(){
   }catch(e){}
   if(!DB.zones?.length)DB.zones=structuredClone(SEED_ZONES);
   if(!DB.tools?.length)DB.tools=structuredClone(SEED_TOOLS);
-  if(!DB.tasks?.length)DB.tasks=structuredClone(SEED_TASKS);
-  DB.place||={};DB.kits||=[];
+  if(!DB.place||!Object.keys(DB.place).length)DB.place={...SEED_PLACE};
 }
 function resetAll(){
   if(!confirm('Throw away your edits and go back to the seeded truck?'))return;
-  DB={zones:structuredClone(SEED_ZONES),tools:structuredClone(SEED_TOOLS),
-      tasks:structuredClone(SEED_TASKS),place:{},kits:[]};
+  DB={zones:structuredClone(SEED_ZONES),tools:structuredClone(SEED_TOOLS),place:{...SEED_PLACE}};
   lastOpt=null;save();render();
 }
 
 /* ── the model ───────────────────────────────────────────────────── */
 const zone=id=>DB.zones.find(z=>z.id===id);
 const tool=id=>DB.tools.find(t=>t.id===id);
-const kit =id=>DB.kits.find(k=>k.id===id);
-/* a tool swallowed by an adopted kit is placed as part of that kit */
-const kitOf=tid=>DB.kits.find(k=>k.tools.includes(tid));
-/* every placeable unit: loose tools plus adopted kits */
-function units(){
-  const out=[];
-  for(const k of DB.kits){
-    const ts=k.tools.map(tool).filter(Boolean);
-    out.push({id:'k_'+k.id, kind:'kit', name:k.name, vol:ts.reduce((a,t)=>a+t.vol,0),
-              lbs:ts.reduce((a,t)=>a+t.lbs,0), trips:k.trips, tools:ts});
-  }
-  for(const t of DB.tools){
-    if(kitOf(t.id))continue;
-    out.push({id:t.id, kind:'tool', name:t.name, vol:t.vol, lbs:t.lbs, trips:t.trips, tools:[t]});
-  }
-  return out;
-}
+
 /* how full each zone is under a given placement */
 function loads(place){
   const m={};
   for(const z of DB.zones)m[z.id]={vol:0,lbs:0,n:0};
-  for(const u of units()){
-    const zid=place[u.id];
+  for(const t of DB.tools){
+    const zid=place[t.id];
     if(!zid||!m[zid])continue;
-    m[zid].vol+=u.vol;m[zid].lbs+=u.lbs;m[zid].n++;
+    m[zid].vol+=t.vol;m[zid].lbs+=t.lbs;m[zid].n++;
   }
   return m;
 }
-/* the seconds it really costs to get into a zone once it's packed */
+/* the seconds it really costs to get into a zone once it's packed:
+   past CRAM_START full, things are behind other things */
 function effReach(z,load){
-  const fill=z.vol>0?load.vol/z.vol:0;
-  const cram=Math.max(0,fill-CRAM_START);
-  return z.reach*(1+cram*CRAM_COST);
+  const fill=z.vol>0?(load?.vol||0)/z.vol:0;
+  const crowd=Math.max(0,(load?.n||0)-(z.slots||99))*RUMMAGE;
+  return z.reach*(1+Math.max(0,fill-CRAM_START)*CRAM_COST)+crowd;
 }
-/* the whole score: minutes a day spent fetching, plus what it weighs */
+/* the whole score: seconds a day spent fetching, plus what it weighs */
 function score(place){
   const L=loads(place);
-  let sec=0, homeless=0, overV=0, overW=0, lbs=0, rear=0;
+  let sec=0,homeless=0,lbs=0,rear=0,behind=0;
   const per=[];
-  for(const u of units()){
-    const zid=place[u.id], z=zid?zone(zid):null;
+  for(const t of DB.tools){
+    const zid=place[t.id], z=zid?zone(zid):null;
     const r=z?effReach(z,L[zid]):LOOSE_REACH;
-    const s=u.trips*2*r;                      // there and back, every trip
-    sec+=s;
-    if(!z)homeless++;
-    per.push({unit:u, zid, reach:r, sec:s});
-    lbs+=u.lbs;
-    rear+=u.lbs*(z?z.rear:0.9);
+    const s=t.trips*2*r;                    // there and back, every trip
+    sec+=s; if(!z)homeless++;
+    per.push({tool:t,zid,reach:r,sec:s});
+    lbs+=t.lbs; rear+=t.lbs*(z?z.rear:0.9);
+    if(z&&z.rear>1)behind+=t.lbs;          // aft of the axle, levering the nose up
   }
-  for(const z of DB.zones){
-    if(L[z.id].vol>z.vol)overV++;
-    if(L[z.id].lbs>z.lbs)overW++;
-  }
+  const over=DB.zones.filter(z=>L[z.id].vol>z.vol+1e-9||L[z.id].lbs>z.lbs+1e-9);
   per.sort((a,b)=>b.sec-a.sec);
-  return {sec, min:sec/60, homeless, overV, overW, lbs, rear,
-          rearPct:lbs?rear/lbs:0, loads:L, per};
+  return {sec,min:sec/60,homeless,over,lbs,rear,behind,rearPct:lbs?rear/lbs:0,loads:L,per};
 }
+const fits=place=>{
+  const L=loads(place);
+  if(DB.tools.some(t=>t.long&&place[t.id]&&!zone(place[t.id])?.long))return false;
+  return DB.zones.every(z=>L[z.id].vol<=z.vol+1e-9&&L[z.id].lbs<=z.lbs+1e-9);};
 
-/* ── optimizer: greedy by how often you touch it, then pair swaps ── */
+/* ── optimizer ───────────────────────────────────────────────────
+   Greedy first: the thing you grab most often gets the easiest spot
+   that still has room. Then pair swaps until nothing improves — crude
+   local search, but it reliably beats hand-packing on this model.   */
 function optimize(){
   const before=score(DB.place);
   const place={};
-  const us=units().slice().sort((a,b)=>b.trips-a.trips);
-  for(const u of us){
+  const ts=DB.tools.slice().sort((a,b)=>b.trips-a.trips);
+  for(const t of ts){
     let best=null,bestR=Infinity;
+    const L=loads(place);
     for(const z of DB.zones){
-      const L=loads(place);
-      if(L[z.id].vol+u.vol>z.vol)continue;
-      if(L[z.id].lbs+u.lbs>z.lbs)continue;
-      const r=effReach(z,{vol:L[z.id].vol+u.vol});
+      if(t.long&&!z.long)continue;                      // 48" lath, a rover pole
+      if(L[z.id].vol+t.vol>z.vol||L[z.id].lbs+t.lbs>z.lbs)continue;
+      const r=effReach(z,{vol:L[z.id].vol+t.vol,n:L[z.id].n+1});
       if(r<bestR){bestR=r;best=z.id;}
     }
-    if(best)place[u.id]=best;
+    if(best)place[t.id]=best;
   }
-  // local search: swap two units' zones when it helps and still fits
   let cur=score(place).sec;
-  const ids=us.map(u=>u.id);
-  for(let pass=0;pass<240;pass++){
+  const ids=ts.map(t=>t.id);
+  for(let pass=0;pass<60;pass++){
     let moved=false;
     for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
       const a=ids[i],b=ids[j];
@@ -359,70 +369,319 @@ function optimize(){
       const trial={...place,[a]:place[b],[b]:place[a]};
       if(!fits(trial))continue;
       const s=score(trial).sec;
-      if(s<cur-0.01){Object.assign(place,trial);cur=s;moved=true;}
+      if(s<cur-0.01){place[a]=trial[a];place[b]=trial[b];cur=s;moved=true;}
     }
     if(!moved)break;
   }
   DB.place=place;lastOpt=before;save();render();
-  const after=score(DB.place);
-  const d=before.min-after.min;
-  toast(d>0.05?`saves ~${d.toFixed(1)} min/day of fetching`:'already about as good as this model gets');
-}
-function fits(place){
-  const L=loads(place);
-  return DB.zones.every(z=>L[z.id].vol<=z.vol&&L[z.id].lbs<=z.lbs);
+  const d=before.min-score(DB.place).min;
+  toast(d>0.05?`${d.toFixed(1)} min/day less fetching`:'already about as good as this model gets');
 }
 
-/* ── bag suggestions ──────────────────────────────────────────────
-   For each task: the tools it needs, minus the big stuff that can't go
-   in a bag. If those tools are scattered across several zones today,
-   every job means several trips. One bag means one trip. The saving is
-   the difference, times how many of that job you run a day.        */
-function suggestKits(){
-  const out=[];
-  for(const t of DB.tasks){
-    const ts=t.tools.map(tool).filter(t2=>t2&&t2.bag&&!kitOf(t2.id));
-    if(ts.length<3)continue;
-    // trim to what a person can actually carry, most-used first
-    const pick=[];let vol=0,lbs=0;
-    for(const x of ts.slice().sort((a,b)=>b.trips-a.trips)){
-      if(vol+x.vol>BAG_VOL||lbs+x.lbs>BAG_LBS)continue;
-      pick.push(x);vol+=x.vol;lbs+=x.lbs;
-    }
-    if(pick.length<3)continue;
-    const S=score(DB.place);
-    const zonesHit=new Set(pick.map(x=>DB.place[x.id]||'loose'));
-    const tripsNow=[...zonesHit].reduce((a,zid)=>{
-      const z=zid==='loose'?null:zone(zid);
-      return a+(z?effReach(z,S.loads[zid]):LOOSE_REACH);
-    },0);
-    const bagZone=bestFreeZone(vol,lbs)||DB.zones[0];
-    const tripsBag=effReach(bagZone,S.loads[bagZone.id]||{vol:0});
-    const savedSec=t.jobs*2*Math.max(0,tripsNow-tripsBag);
-    out.push({id:'kit_'+t.id, task:t, name:t.name+' bag', tools:pick, vol, lbs,
-              savedMin:savedSec/60, zonesHit:zonesHit.size, home:bagZone});
+/* ── chrome ──────────────────────────────────────────────────────── */
+function setTab(t){tab=t;selZone=null;render();}
+function toggleTheme(){
+  const cur=document.documentElement.getAttribute('data-theme');
+  const dark=matchMedia('(prefers-color-scheme:dark)').matches;
+  const next=cur?(cur==='dark'?'light':'dark'):(dark?'light':'dark');
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem(THEME_KEY,next);}catch(e){}
+}
+try{const t=localStorage.getItem(THEME_KEY);if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}
+
+function render(){
+  const S=score(DB.place);
+  renderKpis(S);
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  const v=el('view');
+  v.innerHTML = tab==='layout'?layoutView(S)
+              : tab==='tools'?toolsView(S)
+              : tab==='zones'?zonesView(S)
+              : sheetView(S);
+}
+
+function renderKpis(S){
+  const payPct=S.lbs/TRUCK.payload;
+  el('kpis').innerHTML=`
+    <div class="kpi"><div class="l">Fetching</div>
+      <div class="v">${fmtMin(S.sec)}</div><div class="s">min / day</div></div>
+    <div class="kpi"><div class="l">Per 5-day week</div>
+      <div class="v">${(S.min*5/60).toFixed(1)}</div><div class="s">hours</div></div>
+    <div class="kpi"><div class="l">No home</div>
+      <div class="v ${S.homeless?'bad':'good'}">${S.homeless}</div><div class="s">tools loose</div></div>
+    <div class="kpi"><div class="l">Over capacity</div>
+      <div class="v ${S.over.length?'bad':'good'}">${S.over.length}</div><div class="s">zones</div></div>
+    <div class="kpi"><div class="l">Tool weight</div>
+      <div class="v">${Math.round(S.lbs)}</div><div class="s">lbs</div></div>
+    <div class="kpi"><div class="l">Payload used</div>
+      <div class="v ${payPct>0.6?'bad':payPct>0.35?'warn':'good'}">${Math.round(payPct*100)}%</div>
+      <div class="s">of ${TRUCK.payload} lb</div></div>
+    <div class="kpi"><div class="l">Behind rear axle</div>
+      <div class="v ${S.behind>120?'warn':'good'}">${Math.round(S.behind)}</div>
+      <div class="s">lbs at the tailgate</div></div>`;
+}
+
+/* ── layout: the truck plan, and what is in each zone ────────────── */
+function layoutView(S){
+  const L=S.loads;
+  const rects=DB.zones.map(z=>{
+    const ld=L[z.id],fill=z.vol?ld.vol/z.vol:0;
+    const over=ld.vol>z.vol+1e-9||ld.lbs>z.lbs+1e-9;
+    const col=over?'var(--red)':fill>0.85?'var(--amber)':fill>0.35?'var(--blue)':'var(--green)';
+    const on=selZone===z.id;
+    return `<g class="zone-rect" onclick="selZone=selZone==='${z.id}'?null:'${z.id}';render()">
+      <rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="1.6"
+            fill="${col}" fill-opacity="${0.10+Math.min(fill,1)*0.42}"
+            stroke="${on?'var(--text)':col}" stroke-width="${on?1.1:0.5}"></rect>
+      ${z.w<22
+        ? `<text class="zone-lbl" transform="translate(${z.x+z.w/2+1.2},${z.y+z.h-2}) rotate(-90)">${esc(z.ab||z.name)}</text>
+           <text class="zone-sub" transform="translate(${z.x+z.w/2-2.4},${z.y+z.h-2}) rotate(-90)">${ld.n} · ${z.reach}s</text>`
+        : `<text class="zone-lbl" x="${z.x+1.8}" y="${z.y+5}">${esc(z.ab||z.name)}</text>
+           <text class="zone-sub" x="${z.x+1.8}" y="${z.y+8.8}">${ld.n} item${ld.n===1?'':'s'} · ${z.reach}s · ${Math.round(fill*100)}% full</text>`}
+    </g>`;
+  }).join('');
+
+  const sel=selZone?zone(selZone):null;
+  const selBody=sel?zonePanel(sel,S):`
+    <div class="panel-body"><div class="hint">Tap a zone on the plan to see what's in it.
+      Everything below is placed with the dropdowns — the plan is the picture, the list is the truth.</div></div>`;
+
+  const cmp=lastOpt?`<div class="panel"><div class="panel-head"><h3>Before / after</h3></div>
+    <div class="panel-body"><div class="cmp">
+      <div class="cmp-row"><span class="lab">Your layout</span><div class="track">
+        <div class="fill" style="width:100%">${fmtMin(lastOpt.sec)} min</div></div></div>
+      <div class="cmp-row"><span class="lab">Optimized</span><div class="track">
+        <div class="fill best" style="width:${Math.max(6,(S.sec/lastOpt.sec)*100)}%">${fmtMin(S.sec)} min</div></div></div>
+    </div><div class="hint" style="margin-top:8px">
+      ${(lastOpt.min-S.min).toFixed(1)} min/day, ${((lastOpt.min-S.min)*5/60).toFixed(1)} hours a week per truck.
+      Multiply by the number of trucks before you decide it's small.</div></div></div>`:'';
+
+  return `<div class="split">
+    <div>
+      <div class="panel"><div class="panel-head"><h3>Truck, from above</h3>
+        <span class="n">Tacoma Access Cab · 6' bed</span></div>
+        <div class="panel-body">
+          <svg class="plan" viewBox="0 0 82 216">
+            <rect class="truck-body" x="3.8" y="22" width="74.4" height="190" rx="9"></rect>
+            <rect class="truck-body" x="10" y="112" width="56.7" height="73.7" rx="2"
+                  stroke-dasharray="2 1.6"></rect>
+            <line x1="3.8" y1="46" x2="78.2" y2="46" stroke="var(--border)" stroke-width=".9"></line>
+            <line x1="3.8" y1="112" x2="78.2" y2="112" stroke="var(--border)" stroke-width=".9"></line>
+            <line x1="3.8" y1="185.7" x2="78.2" y2="185.7" stroke="var(--border)" stroke-width=".9"></line>
+            <text class="truck-note" x="10" y="1.6">bed rack — sits over the bed</text>
+            <text class="truck-note" x="4.5" y="44">hood</text>
+            <text class="truck-note" x="4.5" y="110">cab · jump seats</text>
+            <text class="truck-note" x="4.5" y="184.4">bed · 73.7" × 56.7"</text>
+            <text class="truck-note" x="4.5" y="192">tailgate</text>
+            ${rects}
+          </svg>
+          <div class="hint" style="margin-top:8px">Drawn to scale in inches. Green is roomy, amber is nearly full, red is over
+            capacity. Fuller zones cost extra seconds — things get buried.</div>
+        </div></div>
+      ${cmp}
+    </div>
+    <div>
+      <div class="panel"><div class="panel-head">
+          <h3>${sel?esc(sel.name):'Zone'}</h3>
+          ${sel?`<span class="spacer"></span><button class="btn btn-sm" onclick="selZone=null;render()">clear</button>`:''}
+        </div>${selBody}</div>
+
+      <div class="panel"><div class="panel-head"><h3>Where everything lives</h3>
+        <span class="n">${DB.tools.length} tools</span>
+        <span class="spacer"></span>
+        <button class="btn btn-sm" onclick="clearPlace()">empty the truck</button></div>
+        <div class="panel-body flush">${placeRows(S)}</div></div>
+
+      <div class="panel"><div class="panel-head"><h3>Biggest time sinks</h3>
+        <span class="n">where the minutes actually go</span></div>
+        <div class="panel-body flush">${S.per.slice(0,8).map(p=>{
+          const z=p.zid?zone(p.zid):null;
+          return `<div class="row"><span class="nm">${esc(p.tool.name)}</span>
+            <span class="tag ${z?'zone':'hot'}">${z?esc(z.name):'no home'}</span>
+            <span class="meta">${p.tool.trips}×/day · ${fmtMin(p.sec)} min</span></div>`;
+        }).join('')}</div></div>
+    </div></div>`;
+}
+
+function zonePanel(z,S){
+  const ld=S.loads[z.id];
+  const inside=DB.tools.filter(t=>DB.place[t.id]===z.id).sort((a,b)=>b.trips-a.trips);
+  const vPct=Math.min(100,ld.vol/z.vol*100), wPct=Math.min(100,ld.lbs/z.lbs*100);
+  const cls=p=>p>100?'bad':p>85?'warn':'';
+  return `<div class="panel-body">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)">
+        <span><b style="color:var(--text)">${z.reach}s</b> base reach</span>
+        <span><b style="color:var(--text)">${effReach(z,ld).toFixed(1)}s</b> as packed</span>
+        <span><b style="color:var(--text)">${Math.round(z.rear*100)}%</b> on rear axle</span>
+      </div>
+      <div style="margin-top:9px">
+        <div class="hint">Space ${ld.vol.toFixed(1)} / ${z.vol} cu ft</div>
+        <div class="bar"><i class="${cls(ld.vol/z.vol*100)}" style="width:${vPct}%"></i></div>
+        <div class="hint" style="margin-top:6px">Weight ${Math.round(ld.lbs)} / ${z.lbs} lbs</div>
+        <div class="bar"><i class="${cls(ld.lbs/z.lbs*100)}" style="width:${wPct}%"></i></div>
+      </div></div>
+    <div class="panel-body flush" style="border-top:1px solid var(--border-soft)">
+      ${inside.length?inside.map(t=>`<div class="row"><span class="nm">${esc(t.name)}</span>
+          <span class="meta">${t.trips}×/day · ${t.lbs} lb</span>
+          <button class="btn btn-sm" onclick="place('${t.id}','')">out</button></div>`).join('')
+        :`<div class="row"><span class="hint">Empty.</span></div>`}
+    </div>`;
+}
+
+function placeRows(S){
+  const order=DB.tools.slice().sort((a,b)=>b.trips-a.trips);
+  return order.map(t=>{
+    const zid=DB.place[t.id]||'';
+    const hot=t.trips>=8;
+    return `<div class="row${selZone&&zid===selZone?' sel':''}">
+      <span class="nm">${esc(t.name)}</span>
+      ${t.long?'<span class="tag">4 ft+</span>':''}
+      ${hot?'<span class="tag hot">grabbed a lot</span>':''}
+      ${t.cat==='stock'?'<span class="tag">week stock</span>':''}
+      <span class="meta">${t.trips}×/day</span>
+      <select onchange="place('${t.id}',this.value)" style="max-width:168px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font:inherit;font-size:11.5px">
+        <option value=""${zid?'':' selected'}>— no home —</option>
+        ${DB.zones.map(z=>{
+          const no=t.long&&!z.long;
+          return `<option value="${z.id}"${zid===z.id?' selected':''}${no?' disabled':''}>${esc(z.name)}${no?" — too short":''}</option>`;
+        }).join('')}
+      </select></div>`;
+  }).join('');
+}
+function place(tid,zid){
+  if(zid)DB.place[tid]=zid; else delete DB.place[tid];
+  save();
+  setTimeout(render,0);
+}
+function clearPlace(){DB.place={};lastOpt=null;save();render();}
+
+/* ── tools: the editable inventory ───────────────────────────────── */
+function toolsView(S){
+  const rows=DB.tools.slice().sort((a,b)=>b.trips-a.trips).map(t=>`<tr>
+    <td><input value="${esc(t.name)}" onchange="editTool('${t.id}','name',this.value)"></td>
+    <td><input value="${esc(t.cat||'')}" onchange="editTool('${t.id}','cat',this.value)" style="max-width:110px"></td>
+    <td><input class="num" value="${t.trips}" onchange="editTool('${t.id}','trips',this.value)"></td>
+    <td><input class="num" value="${t.vol}" onchange="editTool('${t.id}','vol',this.value)"></td>
+    <td><input class="num" value="${t.lbs}" onchange="editTool('${t.id}','lbs',this.value)"></td>
+    <td style="text-align:right"><button class="btn btn-sm btn-danger" onclick="delTool('${t.id}')">×</button></td>
+  </tr>`).join('');
+  return `<div class="panel"><div class="panel-head"><h3>Tools</h3>
+      <span class="n">trips/day is the number that drives everything</span>
+      <span class="spacer"></span><button class="btn btn-sm" onclick="addTool()">+ tool</button></div>
+    <div class="panel-body flush"><table>
+      <thead><tr><th>Tool</th><th>Category</th><th>Trips / day</th><th>cu ft</th><th>lbs</th><th></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+    <div class="panel-body"><div class="hint">
+      <b>Trips/day</b> is how many times somebody walks back to the truck for it across a whole day —
+      count both crew. That is the only number the optimizer really cares about. Volume and weight
+      just decide what fits where. All of it is a guess until you watch a couple of days; edit freely.
+    </div></div></div>`;
+}
+function editTool(id,k,v){
+  const t=tool(id);if(!t)return;
+  t[k]=(k==='name'||k==='cat')?v:Math.max(0,num(v,0));
+  save();
+  setTimeout(render,0);   // let the field finish blurring before the DOM is replaced
+}
+function addTool(){
+  DB.tools.push({id:uid(),name:'New tool',cat:'',vol:0.5,lbs:5,trips:1});
+  save();render();
+}
+function delTool(id){
+  DB.tools=DB.tools.filter(t=>t.id!==id);delete DB.place[id];save();render();
+}
+
+/* ── zones: the truck itself ─────────────────────────────────────── */
+function zonesView(S){
+  const rows=DB.zones.slice().sort((a,b)=>a.reach-b.reach).map(z=>{
+    const ld=S.loads[z.id];
+    return `<tr>
+      <td><input value="${esc(z.name)}" onchange="editZone('${z.id}','name',this.value)"></td>
+      <td><input class="num" value="${z.reach}" onchange="editZone('${z.id}','reach',this.value)"></td>
+      <td><input class="num" value="${z.vol}" onchange="editZone('${z.id}','vol',this.value)"></td>
+      <td><input class="num" value="${z.lbs}" onchange="editZone('${z.id}','lbs',this.value)"></td>
+      <td><input class="num" value="${z.rear}" onchange="editZone('${z.id}','rear',this.value)"></td>
+      <td><input class="num" value="${z.slots}" onchange="editZone('${z.id}','slots',this.value)"></td>
+      <td class="meta" style="font-family:var(--mono);font-size:11px;white-space:nowrap">
+        ${ld.n} · ${ld.vol.toFixed(1)} cf · ${Math.round(ld.lbs)} lb</td>
+    </tr>`;
+  }).join('');
+  return `<div class="panel"><div class="panel-head"><h3>${esc(TRUCK.name)}</h3></div>
+      <div class="panel-body"><div class="hint">
+        Bed ${TRUCK.bedL}" long × ${TRUCK.bedW}" wide at the rails, ${TRUCK.bedWells}" between the wheel
+        wells, ${TRUCK.bedD}" deep — about ${TRUCK.bedCuFt} cu ft. Payload around ${TRUCK.payload} lb
+        depending on trim, and that is people, tools, stakes, water and fuel together.
+      </div></div></div>
+    <div class="panel"><div class="panel-head"><h3>Zones</h3>
+      <span class="n">reach seconds is the whole model — measure it once with a stopwatch</span></div>
+      <div class="panel-body flush"><table>
+        <thead><tr><th>Zone</th><th>Reach (s)</th><th>cu ft</th><th>lbs max</th><th>Rear axle share</th><th>Slots</th><th>Holding</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <div class="panel-body"><div class="hint">
+        <b>Reach</b> = walk to it, open it, get the tool, be back at the work. Time it on a real truck and
+        these numbers stop being guesses.<br>
+        <b>Rear axle share</b> = how much of that zone's weight lands on the back tires. Behind the axle is
+        over 1.0 because it levers weight off the front. Cab is low because it is ahead of the axle.<br>
+        <b>Slots</b> = how many separate things can live there and still be found at a glance. A divided box
+        has plenty; an open bed floor has about four, because past that it is a pile. Every item over the
+        count adds ${RUMMAGE}s to everything in that zone — which is what stops the optimizer from
+        answering \"put all of it on the tailgate\".
+      </div></div></div>`;
+}
+function editZone(id,k,v){
+  const z=zone(id);if(!z)return;
+  z[k]=k==='name'?v:Math.max(0,num(v,0));
+  save();
+  setTimeout(render,0);
+}
+
+/* ── the layout sheet: the thing you tape inside the toolbox lid ── */
+function sheetView(S){
+  const zs=DB.zones.slice().sort((a,b)=>a.reach-b.reach);
+  const body=zs.map(z=>{
+    const inside=DB.tools.filter(t=>DB.place[t.id]===z.id).sort((a,b)=>b.trips-a.trips);
+    const ld=S.loads[z.id];
+    return `<div class="sheet-zone">
+      <h4>${esc(z.name)} <span class="cap">${z.reach}s · ${ld.vol.toFixed(1)}/${z.vol} cu ft · ${Math.round(ld.lbs)}/${z.lbs} lb</span></h4>
+      ${inside.length?`<ul>${inside.map(t=>`<li>${esc(t.name)}${t.trips>=8?' <b>(hot)</b>':''}</li>`).join('')}</ul>`
+        :`<div class="hint" style="margin-top:4px">— empty —</div>`}</div>`;
+  }).join('');
+  const loose=DB.tools.filter(t=>!DB.place[t.id]);
+  return `<div class="sheet">
+    <h2>Truck layout — standard</h2>
+    <div class="sub">${esc(TRUCK.name)} · every truck set up the same way ·
+      ${fmtMin(S.sec)} min/day of fetching · ${Math.round(S.lbs)} lb of tools ·
+      ${Math.round(S.rearPct*100)}% of it on the rear axle</div>
+    ${body}
+    ${loose.length?`<div class="sheet-zone"><h4 style="color:var(--red)">No home yet</h4>
+      <ul>${loose.map(t=>`<li>${esc(t.name)}</li>`).join('')}</ul></div>`:''}
+    <div class="hint" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
+      Print this and tape it inside the crossover lid. A layout only saves time if every truck matches it
+      and a tool goes back where it came from.
+    </div>
+    <div style="margin-top:12px"><button class="btn" onclick="window.print()">print</button>
+      <button class="btn" onclick="exportJson()">export JSON</button></div>
+  </div>`;
+}
+
+async function exportJson(){
+  const json=JSON.stringify(DB,null,2);
+  const filename=`truck-layout-${new Date().toISOString().slice(0,10)}.json`;
+  const host=window.claude;
+  if(host&&typeof host.use==='function'){
+    try{
+      const d=await host.use('downloads');
+      if(d){await d.save({filename,data:json});toast('exported');return;}
+    }catch(e){toast(e?.code==='declined'?'export cancelled':'export failed');return;}
   }
-  return out.sort((a,b)=>b.savedMin-a.savedMin);
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download=filename;a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('exported');
 }
-function bestFreeZone(vol,lbs){
-  const L=loads(DB.place);
-  return DB.zones.filter(z=>(L[z.id].vol+vol)<=z.vol&&(L[z.id].lbs+lbs)<=z.lbs)
-                 .sort((a,b)=>a.reach-b.reach)[0]||null;
-}
-function adoptKit(k){
-  const sug=suggestKits().find(s=>s.id===k);
-  if(!sug)return;
-  const trips=DB.tasks.filter(t=>sug.tools.some(x=>t.tools.includes(x.id)))
-                      .reduce((a,t)=>a+t.jobs,0);
-  const id=uid();
-  DB.kits.push({id,name:sug.name,tools:sug.tools.map(t=>t.id),trips:Math.max(trips,1)});
-  for(const t of sug.tools)delete DB.place[t.id];
-  DB.place['k_'+id]=sug.home.id;
-  save();render();
-  toast(`${sug.name} built — it lives in ${sug.home.name}`);
-}
-function dropKit(id){
-  DB.kits=DB.kits.filter(k=>k.id!==id);
-  delete DB.place['k_'+id];
-  save();render();
-}
+
+load();render();
+</script>
+</body>
+</html>

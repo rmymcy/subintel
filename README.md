@@ -7,13 +7,44 @@ reference, and an interactive map of the benchmarks and TBMs on it.
 Filed **city → county or municipality → subdivision**, so anything that belongs
 to the county is recorded once and inherited by every sub under it.
 
-**[`sub_intel.html`](sub_intel.html)** is the whole application — open the file,
-no build, no server, no account. Data lives in the browser under `subIntelDB`,
-with JSON export/import to move or merge libraries.
+## The site
 
-Opening it with `#/demo` on the end of the URL seeds a worked example — a
-made-up Houston with two jurisdictions, two subdivisions and four control
-points — so you can hand the link to someone cold. It never overwrites an
-existing library.
+**https://rmymcy.github.io/subintel/**
+
+Add `#/demo` to the end and it opens on a worked example — a made-up Houston
+with two jurisdictions, two subdivisions and four control points — so the link
+can be handed to someone cold. It never overwrites an existing library.
+
+### Turning the site on (one time)
+
+Pages isn't enabled on this repo yet. In **Settings → Pages**, set *Source* to
+**Deploy from a branch**, branch **main**, folder **/ (root)**, and Save. The
+site is live at the URL above a minute later, and every push to `main` after
+that redeploys it.
+
+### Installing it on a phone
+
+The site is a proper web app — open it and use **Install** (Android/Chrome shows
+a button in the header) or **Share → Add to Home Screen** (iOS). It gets an icon,
+opens without browser chrome, and starts instantly.
+
+The app itself works with no signal; **map tiles don't** — they're fetched live
+and deliberately not cached, because caching the areas a crew works would cost
+tens of megabytes on the phone. Offline you get the whole library, the
+requirements, the documents and every coordinate; the map is grey behind the
+pins. The header shows an `offline` pill so it's obvious why.
+
+## The files
+
+| | |
+|---|---|
+| `index.html` | the entire application — no build, no server, no account, no CDN |
+| `sw.js` | service worker; caches the app shell (~250KB once), never map tiles |
+| `manifest.webmanifest` | what makes it installable |
+| `sub_intel.html` | a redirect, so the old path keeps working |
+
+`index.html` is still self-contained: drop it on a share drive or email it and it
+runs on its own, with Leaflet and its stylesheet inlined. Data lives in the
+browser under `subIntelDB`, with JSON export/import to move or merge libraries.
 
 See [SUB_INTEL.md](SUB_INTEL.md) for what's in it and why.

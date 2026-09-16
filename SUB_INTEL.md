@@ -1,6 +1,7 @@
 # Sub Intel — purpose & how it works
 
-`sub_intel.html` · one self-contained file · storage key `subIntelDB`
+`index.html` · one self-contained file · storage key `subIntelDB`
+https://rmymcy.github.io/subintel/
 
 ---
 
@@ -124,7 +125,7 @@ Consequences of that shape, on purpose:
 
 ## Sharing it
 
-Open `sub_intel.html` and the library is empty; the landing page offers
+Open the site and the library is empty; the landing page offers
 **load example data** — a made-up Houston with Harris County, the City of Katy,
 two subdivisions and four control points, enough to see every part of the tool
 working. Erase it from `⇅ → erase the whole library` when the real library starts.
@@ -133,11 +134,29 @@ Two links skip that button and seed the example on arrival, for handing the tool
 to someone cold:
 
 ```
-sub_intel.html#/demo
-sub_intel.html?demo
+https://rmymcy.github.io/subintel/#/demo
+https://rmymcy.github.io/subintel/?demo
 ```
 
 Neither is destructive — if that browser already has a library, they just open it.
+
+## Installing it
+
+`manifest.webmanifest` and `sw.js` make the site an installable web app: an icon
+on the home screen, no browser chrome, instant start. Android/Chrome surfaces an
+**Install** button in the header when it's available; iOS is Share → Add to Home
+Screen.
+
+The service worker caches the **app shell only** — the one HTML document and the
+icons, about 250KB, once. It does **not** cache map tiles. That's deliberate:
+the areas a crew actually works would run to tens of megabytes on the phone.
+So offline you keep the entire library, requirements, documents and coordinates,
+and the map goes grey behind correctly-placed pins. An `offline` pill appears in
+the header so nobody wonders why.
+
+Every push to `main` redeploys the site, and the running app notices — it fetches
+the document from the network first and says *new version ready — reload* when
+one lands.
 
 ## Import, export, merging
 
@@ -164,5 +183,7 @@ Nothing is dropped; file them into real cities as you go.
 - Deleting a city or a jurisdiction deletes everything under it, behind a confirm.
 - `◐` toggles light/dark; it follows the OS until you touch it.
 - Header keeps 52px of left padding to clear the APFLO hub's menu button.
-- The only external requests are the Inter font, Leaflet, and map tiles.
-  Everything else is in the file.
+- The only external requests are the Inter font (it falls back to the system
+  stack) and map tiles. Leaflet and its stylesheet are inlined — there is no CDN
+  dependency, which is why the file works behind a strict content security
+  policy and off a share drive.

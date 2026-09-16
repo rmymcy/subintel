@@ -142,14 +142,36 @@ tr.dead td{opacity:.4}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--blue-deep);color:#fff;font-size:12.5px;padding:9px 16px;border-radius:var(--radius);box-shadow:var(--shadow-lg);transition:transform .18s;z-index:100;max-width:90vw;text-align:center}
 #toast.show{transform:translateX(-50%) translateY(0)}
 @media print{header,#tabs,#kpis,.btn{display:none!important}body{overflow:visible}main{overflow:visible;padding:0}}
-</style>
-</head>
+
+/* ── packing canvas ── */
+.packwrap{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;position:relative}
+svg.pack{width:100%;height:auto;max-height:82vh;display:block;touch-action:none}
+.cont-rect{fill:var(--bg-panel);stroke:var(--border);stroke-width:.5}
+.cont-rect.hot{stroke:var(--blue);stroke-width:1.1}
+.cont-lbl{font-size:2.7px;font-weight:700;fill:var(--muted);font-family:var(--font);pointer-events:none}
+.cont-dim{font-size:2.1px;fill:var(--faint);font-family:var(--mono);pointer-events:none}
+.grp{font-size:3px;font-weight:700;fill:var(--faint);font-family:var(--font);pointer-events:none;
+     text-transform:uppercase;letter-spacing:.1em}
+.item{cursor:grab}
+.item.drag{cursor:grabbing}
+.item rect{stroke-width:.4;stroke:rgba(0,0,0,.35)}
+.item text{font-size:2.4px;font-weight:700;fill:#10233a;font-family:var(--font);pointer-events:none}
+.item.bad rect{stroke:var(--red);stroke-width:1}
+.tray{background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:9px 11px;margin-top:10px}
+.tray h4{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+.chipitem{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:3px 8px;
+  border-radius:5px;border:1px solid var(--border);background:var(--bg);margin:0 4px 4px 0;cursor:grab}
+.chipitem .d{font-family:var(--mono);font-size:10px;color:var(--muted)}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:10.5px;color:var(--muted);margin-top:7px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+</style></head>
 <body>
 
 <header>
-  <h1>Truck Lab <span class="ver">v0.1 · rough model</span></h1>
+  <h1>Truck Lab <span class="ver">v0.2 · packing model</span></h1>
   <span class="spacer"></span>
-  <button class="btn" onclick="optimize()">⚙ Optimize placement</button>
+  <button class="btn" onclick="autoPack()">⚙ Auto-pack</button>
+  <button class="btn" onclick="emptyAll()">empty</button>
   <button class="btn" onclick="resetAll()">reset</button>
   <button class="btn btn-icon" onclick="toggleTheme()" title="light / dark">◐</button>
 </header>
@@ -157,9 +179,9 @@ tr.dead td{opacity:.4}
 <div id="kpis"></div>
 
 <div id="tabs">
-  <button class="tab on" data-tab="layout" onclick="setTab('layout')">Layout</button>
+  <button class="tab on" data-tab="pack" onclick="setTab('pack')">Packing</button>
   <button class="tab" data-tab="tools" onclick="setTab('tools')">Tools</button>
-  <button class="tab" data-tab="zones" onclick="setTab('zones')">Truck zones</button>
+  <button class="tab" data-tab="zones" onclick="setTab('zones')">Compartments</button>
   <button class="tab" data-tab="sheet" onclick="setTab('sheet')">Layout sheet</button>
 </div>
 
@@ -169,269 +191,211 @@ tr.dead td{opacity:.4}
 <script>
 'use strict';
 /* ══════════════════════════════════════════════════════════════════
-   Truck Lab — a rough time-and-motion model for a survey truck.
+   Truck Lab v0.2 — a packing model for a survey truck.
 
-   The whole model is one idea: every tool gets fetched some number of
-   times a day, and every spot in the truck costs some number of seconds
-   to fetch from. Minutes per day of fetching is the score. That is
-   enough to rank layouts against each other and to see which bags are
-   worth making. It is NOT a physics or packing simulation — volumes are
-   rough, the reach times are estimates you should edit to match your
-   trucks, and nothing here knows what your bed actually looks like.
+   v0.1 was cubic feet in buckets, which cannot answer "will the laser
+   case actually go in that bay". This one is geometric: every tool is a
+   real box in inches, every compartment is a real box in inches, and
+   things are dragged into place with collision, bounds and a height
+   check. Rotation is a click.
+
+   The time model rides on top of the geometry: reaching something costs
+   the compartment's base seconds plus a penalty for how far up the bed
+   it sits, because the tailgate end is the end you can reach. So where
+   a thing sits inside a compartment matters, not just which one.
+
+   Not modelled: stacking (one layer per compartment, height checked),
+   anything soft that squishes, and the fact that a real crew will throw
+   a rope on top of all of it anyway.
    ══════════════════════════════════════════════════════════════════ */
-const DB_KEY='truckLabDB';
+const DB_KEY='truckLabDB2';
 const THEME_KEY='truckLabTheme';
 
-/* The truck: 2021 Tacoma Access Cab. That is the 6-foot bed —
-   73.7" long, 56.7" wide at the rails, 41.5" between the wheel wells,
-   19.1" deep, about 49 cu ft. Overall 212.3" long, 74.4" wide. Payload
-   is trim-dependent; 1,175 lb is the common figure and it is editable.
-   Access Cab matters here: the back is jump seats behind rear-hinged
-   half doors, so it is small AND slow to get into — you have to open
-   the front door first. That is why cabJ costs 30 seconds.
-   All plan coordinates below are inches. */
+/* 2021 Tacoma Access Cab, 6' bed, with a wooden box that spans the whole
+   bed: 2x6 frame so 5.5" inside, three compartments across the width,
+   one divider in the driver bay and one in the passenger bay making a
+   cubby at the tailgate end of each. */
 const TRUCK={name:'2021 Toyota Tacoma — Access Cab, 6\' bed',
-  bedL:73.7, bedW:56.7, bedWells:41.5, bedD:19.1, bedCuFt:49.4, payload:1175,
-  box:'Wooden box on the wheel wells — 2x6 frame, about 5.5" deep inside. Three '
-     +'bays across the width, plus one divider in the driver bay and one in the '
-     +'passenger bay making a cubby at the back of each. Five compartments total; '
-     +'the center bay runs the full depth. The bays run front-to-back, so the side '
-     +'bays take about 20" and the center about 30" — no compartment holds a 48" '
-     +'lath, which is why lath rides on top or on a rack. The box also buries the '
-     +'space under it: around 9 cu ft of real volume that you have to reach past '
-     +'the box to use.'};
+  bedL:73.7, bedW:56.7, bedWells:41.5, bedD:19.1, payload:1175};
+const BOX={L:73.7, W:56.7, depth:5.5, bays:3, minCub:6, maxCub:40,
+           x0:10, yFront:112, yRear:185.7};
+const BAYW=+(BOX.W/BOX.bays).toFixed(1);       // 18.9" per bay
 
-/* The box geometry the two dividers slide inside. Everything about the
-   four side compartments is derived from where you put the dividers —
-   see syncBox(). */
-const BOX={x0:10, y0:137, y1:167, bayW:18.9, depth:5.5, minCub:4, maxCub:26};
-const cuft=(w,l,d)=>w*l*d/1728;
+/* Reaching up the bed costs you: the tailgate end is the end you stand at. */
+const REACH_PER_FT=1.3;
+const LOOSE_REACH=55;
 
-const SEED_ZONES=[
-  {id:'tail',  name:'Bed floor — behind the box', ab:'Behind box', reach:6, vol:11.7,lbs:250,rear:1.02,slots:4, maxLen:56, x:10,  y:168, w:56.7,h:17.7},
-  {id:'cubD',  name:'Driver cubby (rear)',        ab:'Drv cubby',  reach:7, vol:0.6, lbs:25, rear:0.95,slots:4, maxLen:19, x:10,  y:157, w:18.9,h:10},
-  {id:'cubP',  name:'Passenger cubby (rear)',     ab:'Pass cubby', reach:7, vol:0.6, lbs:25, rear:0.95,slots:4, maxLen:19, x:47.8,y:157, w:18.9,h:10},
-  {id:'boxD',  name:'Box — driver bay',           ab:'Driver bay', reach:8, vol:1.2, lbs:50, rear:0.90,slots:5, maxLen:20, x:10,  y:137, w:18.9,h:20},
-  {id:'boxP',  name:'Box — passenger bay',        ab:'Pass bay',   reach:8, vol:1.2, lbs:50, rear:0.90,slots:5, maxLen:20, x:47.8,y:137, w:18.9,h:20},
-  {id:'boxtop',name:'Box top (strapped)',         ab:'Box top',    reach:9, vol:4,   lbs:100,rear:0.90,slots:3, maxLen:56, x:10,  y:130, w:56.7,h:6},
-  {id:'boxC',  name:'Box — center bay',           ab:'Center bay', reach:12,vol:1.8, lbs:70, rear:0.90,slots:6, maxLen:30, x:28.9,y:137, w:18.9,h:30},
-  {id:'cabF',  name:'Cab — passenger floor',      ab:'Pass floor', reach:19,vol:4,   lbs:60, rear:0.30,slots:4, maxLen:25, x:42,  y:62,  w:25,  h:20},
-  {id:'bedF',  name:'Bed floor — headboard',      ab:'Headboard',  reach:26,vol:15,  lbs:300,rear:0.74,slots:4, maxLen:56, x:10,  y:113, w:56.7,h:16},
-  {id:'cabJ',  name:'Cab — jump seats',           ab:'Jump seats', reach:30,vol:4,   lbs:80, rear:0.38,slots:4, maxLen:50, x:10,  y:86,  w:57,  h:20},
-  {id:'under', name:'Under the box (between wells)',ab:'Under box',reach:30,vol:9,   lbs:250,rear:0.88,slots:2, maxLen:41, x:39.7,y:3,   w:27,  h:14},
-  {id:'rack',  name:'Bed rack — overhead',        ab:'Bed rack',   reach:40,vol:10,  lbs:150,rear:0.75,slots:4, maxLen:73, x:10,  y:3,   w:27,  h:14}
+/* Containers. l runs front-to-back along the truck, w across it, h up.
+   ax/ay are where the container is drawn on the canvas, in inches.
+   The five box compartments get l and ay from the divider positions. */
+const SEED_CONTS=[
+  {id:'cubD', ab:'Drv cubby',  below:true, name:'Driver cubby',        reach:7,  w:BAYW, h:5.5,  rear:0.99, ax:10,   fromRear:true},
+  {id:'cubP', ab:'Pass cubby', below:true, name:'Passenger cubby',     reach:7,  w:BAYW, h:5.5,  rear:0.99, ax:47.8, fromRear:true},
+  {id:'boxD', ab:'Driver bay', name:'Box — driver bay',    reach:8,  w:BAYW, h:5.5,  rear:0.88, ax:10,   fromRear:true},
+  {id:'boxP', ab:'Pass bay',   name:'Box — passenger bay', reach:8,  w:BAYW, h:5.5,  rear:0.88, ax:47.8, fromRear:true},
+  {id:'boxC', ab:'Center bay', name:'Box — center bay',    reach:12, w:BAYW, h:5.5,  rear:0.88, ax:28.9, fromRear:true},
+  {id:'boxtop',ab:'Box top',   name:'Box top (strapped)', reach:9,  w:56.7, l:73.7, h:14,  rear:0.88, ax:88,  ay:15,   fromRear:true, bedY:112},
+  {id:'under',ab:'Under box',  name:'Under the box',       reach:30, w:41.5, l:73.7, h:12.5,rear:0.86, ax:88,  ay:97,  fromRear:true, bedY:112},
+  {id:'rack', ab:'Bed rack',   name:'Bed rack — overhead', reach:40, w:50,   l:73,   h:12,  rear:0.75, ax:150, ay:15,   fromRear:true, bedY:112},
+  {id:'cabF', ab:'Pass floor', name:'Cab — passenger floor',reach:19,w:20,   l:25,   h:18,  rear:0.30, ax:44,  ay:58,  fromRear:false},
+  {id:'cabJ', ab:'Jump seats', name:'Cab — jump seats',    reach:30, w:50,   l:20,   h:22,  rear:0.38, ax:12,  ay:86,  fromRear:false}
 ];
 
-/* The actual kit. Two different animals live in this list and the split
-   matters more than anything else in the model:
-
-   WORKING SUPPLY — what goes to the lot. Small, light, grabbed all day.
-   WEEK STOCK — the bundles. Heavy, bulky, touched once or twice a day to
-   refill the working supply. Optimizing these two the same way is how a
-   truck ends up with 120 lb of hubs in the easiest spot in the bed and
-   the hammer buried behind it.
-
-   long:true means it will not go in a rail box — 48" lath, the grade
-   stick, a rover pole. The crossover is 56.7" wide, so lath does fit
-   there; that is not an accident of the model, it is the bed. */
+/* Tools as real boxes: l × w × h in inches. l is the long dimension. */
 const SEED_TOOLS=[
-  // working supply
-  {id:'lathbag', name:'Lath bag (working kit)',      cat:'working', vol:1.5, lbs:25, trips:9,  len:36},
-  {id:'hammer',  name:'Framing hammer',              cat:'working', vol:0.15,lbs:2,  trips:9,  len:16},
-  {id:'pinflag', name:'Pink pin flags — working',    cat:'working', vol:0.25,lbs:3,  trips:9,  len:21},
-  {id:'marker',  name:'Marker / lumber crayon',      cat:'working', vol:0.05,lbs:0.5,trips:8,  len:6},
-  {id:'flagging',name:'Flagging tape',               cat:'working', vol:0.3, lbs:3,  trips:8,  len:6},
-  {id:'tacks',   name:'Tacks',                       cat:'working', vol:0.1, lbs:2,  trips:7,  len:5},
-  {id:'laser',   name:'Level laser',                 cat:'working', vol:0.8, lbs:12, trips:5,  len:14},
-  {id:'gradestk',name:'Grade stick for the laser',   cat:'working', vol:0.6, lbs:5,  trips:5,  len:48},
-  {id:'rebar',   name:'Rebar 5/8" × 12" + caps',     cat:'working', vol:0.6, lbs:28, trips:3,  len:12},
-  {id:'tape25',  name:"25' tape",                    cat:'working', vol:0.1, lbs:1,  trips:8,  len:4},
-  {id:'tape100', name:"100' tape",                   cat:'working', vol:0.5, lbs:4,  trips:4,  len:8},
-  // instruments
-  {id:'gps',     name:'GPS rover + pole',            cat:'instrument',vol:1.8,lbs:18,trips:12, len:50},
-  {id:'dc',      name:'Data collector',              cat:'instrument',vol:0.3,lbs:3, trips:12, len:10},
-  {id:'plans',   name:'Tablet / plans',              cat:'instrument',vol:0.3,lbs:3, trips:12, len:12},
-  {id:'batt',    name:'Batteries + chargers',        cat:'instrument',vol:0.5,lbs:7, trips:3,  len:12},
-  // truck stuff
-  {id:'water',   name:'Water cooler',                cat:'truck',   vol:2.0, lbs:25, trips:6,  len:18},
-  {id:'cones',   name:'Traffic cones (4)',           cat:'truck',   vol:2.5, lbs:12, trips:3,  len:28},
-  {id:'vest',    name:'Vest + hard hat',             cat:'truck',   vol:0.8, lbs:4,  trips:2,  len:14},
-  {id:'shovel',  name:'Shovel',                      cat:'truck',   vol:1.2, lbs:5,  trips:2,  len:48},
-  {id:'machete', name:'Machete',                     cat:'truck',   vol:0.3, lbs:3,  trips:2,  len:24},
-  // a week of stock
-  {id:'lathbulk',name:'Lath 1/2×2×48 — 2 bundles',   cat:'stock',   vol:2.8, lbs:85, trips:1.5,len:48},
-  {id:'hubbulk', name:'Hubs 2×2×12 — 2 bundles',     cat:'stock',   vol:2.8, lbs:120,trips:1.5,len:12},
-  {id:'flagbulk',name:'Pin flags — 5 bundles',       cat:'stock',   vol:2.0, lbs:40, trips:1,  len:22},
-  {id:'suppbulk',name:'Tacks / flagging / caps — stock',cat:'stock',vol:1.0, lbs:12, trips:0.5,len:12}
+  {id:'lathbag', name:'Lath bag',            cat:'working', l:30,w:10,h:8,  lbs:25, trips:9},
+  {id:'hammer',  name:'Framing hammer',      cat:'working', l:16,w:5, h:1.5,lbs:2,  trips:9},
+  {id:'pinflag', name:'Pink pin flags',      cat:'working', l:21,w:4, h:4,  lbs:3,  trips:9},
+  {id:'marker',  name:'Marker',              cat:'working', l:6, w:2, h:1.5,lbs:0.5,trips:8},
+  {id:'flagging',name:'Flagging tape',       cat:'working', l:6, w:6, h:4,  lbs:3,  trips:8},
+  {id:'tacks',   name:'Tacks',               cat:'working', l:5, w:4, h:2,  lbs:2,  trips:7},
+  {id:'laser',   name:'Level laser',         cat:'working', l:14,w:10,h:5,  lbs:12, trips:5},
+  {id:'gradestk',name:'Grade stick',         cat:'working', l:48,w:3, h:2,  lbs:5,  trips:5},
+  {id:'rebar',   name:'Rebar 5/8×12 + caps', cat:'working', l:12,w:5, h:4,  lbs:28, trips:3},
+  {id:'tape25',  name:"25' tape",            cat:'working', l:4, w:4, h:2,  lbs:1,  trips:8},
+  {id:'tape100', name:"100' tape",           cat:'working', l:8, w:8, h:3,  lbs:4,  trips:4},
+  {id:'gps',     name:'GPS rover + pole',    cat:'instrument',l:50,w:6,h:6, lbs:18, trips:12},
+  {id:'dc',      name:'Data collector',      cat:'instrument',l:10,w:7,h:3, lbs:3,  trips:12},
+  {id:'plans',   name:'Tablet / plans',      cat:'instrument',l:12,w:9,h:2, lbs:3,  trips:12},
+  {id:'batt',    name:'Batteries',           cat:'instrument',l:12,w:8,h:5, lbs:7,  trips:3},
+  {id:'water',   name:'Water cooler',        cat:'truck',   l:14,w:14,h:16, lbs:25, trips:6},
+  {id:'cones',   name:'Cones (4)',           cat:'truck',   l:28,w:14,h:14, lbs:12, trips:3},
+  {id:'vest',    name:'Vest + hard hat',     cat:'truck',   l:14,w:12,h:6,  lbs:4,  trips:2},
+  {id:'shovel',  name:'Shovel',              cat:'truck',   l:48,w:9, h:4,  lbs:5,  trips:2},
+  {id:'machete', name:'Machete',             cat:'truck',   l:24,w:3, h:2,  lbs:3,  trips:2},
+  {id:'lathbulk',name:'Lath ×2 bundles',     cat:'stock',   l:48,w:12,h:6,  lbs:85, trips:1.5},
+  {id:'hubbulk', name:'Hubs ×2 bundles',     cat:'stock',   l:14,w:12,h:12, lbs:120,trips:1.5},
+  {id:'flagbulk',name:'Pin flags ×5 bundles',cat:'stock',   l:22,w:10,h:10, lbs:40, trips:1},
+  {id:'suppbulk',name:'Tacks/flagging stock',cat:'stock',   l:12,w:10,h:8,  lbs:12, trips:0.5}
 ];
 
-/* Roughly how a truck is packed today — the baseline the optimizer gets
-   compared against. Change it to match yours before reading anything
-   into the before/after number. */
-const SEED_PLACE={
-  lathbag:'tail', gps:'tail', water:'tail', machete:'tail',
-  hammer:'cubD', marker:'cubD',
-  tape25:'cubP', batt:'cubP',
-  tacks:'boxD',
-  flagging:'boxP', tape100:'boxP',
-  laser:'boxC', rebar:'boxC', pinflag:'boxC',
-  gradestk:'boxtop', lathbulk:'boxtop',
-  dc:'cabF', plans:'cabF', vest:'cabJ',
-  cones:'bedF', shovel:'bedF', flagbulk:'bedF',
-  hubbulk:'under', suppbulk:'under'
-};
+const CAT_COLOR={working:'#7fb3e0', instrument:'#a8cf8a', truck:'#e8b877', stock:'#d79a9a'};
 
-/* how bad it is to have a tool with no home — you dig for it */
-const LOOSE_REACH=50;
-/* a zone past this full starts costing extra: things get buried */
-const CRAM_START=0.5, CRAM_COST=2.2;
-/* Slots are how many separate things can live somewhere and still be
-   found at a glance. A divided box has plenty; an open bed floor has
-   about four, because after that it is a pile you dig through. Every
-   item past a zone's slots adds this many seconds to everything in it. */
-const RUMMAGE=3.0;
-let DB={zones:[],tools:[],place:{},box:{dL:10,dP:10}};
-let tab='layout', selTool=null, selZone=null, lastOpt=null;
+let DB={conts:[],tools:[],pack:{},box:{dL:14,dP:14}};
+let tab='pack', drag=null, selCont=null;
 
 const uid=()=>Math.random().toString(36).slice(2,8);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const el=id=>document.getElementById(id);
 const num=(v,d)=>{const n=parseFloat(v);return Number.isFinite(n)?n:d;};
-const mins=sec=>(sec/60);
-const fmtMin=sec=>`${(sec/60).toFixed(1)}`;
+const fmtMin=sec=>(sec/60).toFixed(1);
 function toast(m){const t=el('toast');t.textContent=m;t.className='show';clearTimeout(t._h);t._h=setTimeout(()=>t.className='',2200);}
+const cont=id=>DB.conts.find(c=>c.id===id);
+const tool=id=>DB.tools.find(t=>t.id===id);
 
 function save(){try{localStorage.setItem(DB_KEY,JSON.stringify(DB));}catch(e){}}
 function load(){
-  try{
-    const raw=localStorage.getItem(DB_KEY);
-    if(raw){const d=JSON.parse(raw);if(d&&d.tools)DB=d;}
-  }catch(e){}
-  if(!DB.zones?.length)DB.zones=structuredClone(SEED_ZONES);
+  try{const raw=localStorage.getItem(DB_KEY);if(raw){const d=JSON.parse(raw);if(d&&d.tools)DB=d;}}catch(e){}
+  if(!DB.conts?.length)DB.conts=structuredClone(SEED_CONTS);
   if(!DB.tools?.length)DB.tools=structuredClone(SEED_TOOLS);
-  if(!DB.place||!Object.keys(DB.place).length)DB.place={...SEED_PLACE};
-  DB.box||={dL:10,dP:10};
+  DB.box||={dL:14,dP:14};
+  DB.pack||={};
   syncBox();
+  if(!Object.keys(DB.pack).length)autoPack(true);
 }
 function resetAll(){
-  if(!confirm('Throw away your edits and go back to the seeded truck?'))return;
-  DB={zones:structuredClone(SEED_ZONES),tools:structuredClone(SEED_TOOLS),
-      place:{...SEED_PLACE},box:{dL:10,dP:10}};
-  syncBox();
-  lastOpt=null;save();render();
+  if(!confirm('Throw away your edits and start from the seeded truck?'))return;
+  DB={conts:structuredClone(SEED_CONTS),tools:structuredClone(SEED_TOOLS),pack:{},box:{dL:14,dP:14}};
+  syncBox();autoPack(true);save();render();
 }
+function emptyAll(){DB.pack={};save();render();}
 
-/* ── the model ───────────────────────────────────────────────────── */
-const zone=id=>DB.zones.find(z=>z.id===id);
-
-/* Everything about the four side compartments comes from where the two
-   dividers sit. Slide one back and its cubby shrinks while the bay in
-   front of it grows — volume, weight rating and the longest thing that
-   will lie flat in it all move together. That is the point of making
-   them draggable: it is the one dimension of the box you can still
-   change with a saw. */
+/* The box compartments are entirely derived from the two dividers. The
+   cubbies sit at the tailgate end; the bays take what is left. */
 function syncBox(){
-  DB.box||={dL:10,dP:10};
-  const set=(cubId,bayId,d)=>{
-    const bay=zone(bayId), cub=zone(cubId);
+  const set=(bayId,cubId,d)=>{
+    const bay=cont(bayId), cub=cont(cubId);
     if(!bay||!cub)return;
-    const bayLen=(BOX.y1-BOX.y0)-d;
-    bay.y=BOX.y0;          bay.h=bayLen;
-    cub.y=BOX.y0+bayLen;   cub.h=d;
-    bay.vol=+cuft(BOX.bayW,bayLen,BOX.depth).toFixed(2);
-    cub.vol=+cuft(BOX.bayW,d,BOX.depth).toFixed(2);
-    bay.lbs=Math.round(bay.vol*42);  cub.lbs=Math.round(cub.vol*42);
-    // it can also lie across the bay, so the wider dimension counts
-    bay.maxLen=Math.round(Math.max(bayLen,BOX.bayW));
-    cub.maxLen=Math.round(Math.max(d,BOX.bayW));
+    cub.l=d;       cub.ay=BOX.yRear-d;  cub.bedY=cub.ay;
+    bay.l=BOX.L-d; bay.ay=BOX.yFront;    bay.bedY=bay.ay;
   };
-  set('cubD','boxD',DB.box.dL);
-  set('cubP','boxP',DB.box.dP);
+  set('boxD','cubD',DB.box.dL);
+  set('boxP','cubP',DB.box.dP);
+  const c=cont('boxC'); if(c){c.l=BOX.L;c.ay=BOX.yFront;c.bedY=BOX.yFront;}
 }
-const tool=id=>DB.tools.find(t=>t.id===id);
 
-/* how full each zone is under a given placement */
-function loads(place){
-  const m={};
-  for(const z of DB.zones)m[z.id]={vol:0,lbs:0,n:0};
-  for(const t of DB.tools){
-    const zid=place[t.id];
-    if(!zid||!m[zid])continue;
-    m[zid].vol+=t.vol;m[zid].lbs+=t.lbs;m[zid].n++;
+/* ── geometry ─────────────────────────────────────────────────────
+   A tool's long dimension runs along the truck unless it is rotated.  */
+const fp=(t,rot)=>rot?{fw:t.l,fl:t.w}:{fw:t.w,fl:t.l};
+const packed=cid=>DB.tools.filter(t=>DB.pack[t.id]?.c===cid);
+const bedYOf=c=>c.bedY??BOX.yFront;
+
+function fitsAt(t,c,x,y,rot,ignoreId){
+  if(t.h>c.h+1e-6)return false;                       // lid will not close
+  const {fw,fl}=fp(t,rot);
+  if(x<-1e-6||y<-1e-6||x+fw>c.w+1e-6||y+fl>c.l+1e-6)return false;
+  for(const o of packed(c.id)){
+    if(o.id===t.id||o.id===ignoreId)continue;
+    const p=DB.pack[o.id], of=fp(o,p.rot);
+    if(x<p.x+of.fw-1e-6 && x+fw>p.x+1e-6 && y<p.y+of.fl-1e-6 && y+fl>p.y+1e-6)return false;
   }
-  return m;
+  return true;
 }
-/* the seconds it really costs to get into a zone once it's packed:
-   past CRAM_START full, things are behind other things */
-function effReach(z,load){
-  const fill=z.vol>0?(load?.vol||0)/z.vol:0;
-  const crowd=Math.max(0,(load?.n||0)-(z.slots||99))*RUMMAGE;
-  return z.reach*(1+Math.max(0,fill-CRAM_START)*CRAM_COST)+crowd;
+/* the tailgate is the end you stand at, so the far end of a long bay
+   costs real seconds */
+function reachFor(t){
+  const p=DB.pack[t.id];
+  if(!p)return LOOSE_REACH;
+  const c=cont(p.c);
+  if(!c)return LOOSE_REACH;
+  if(!c.fromRear)return c.reach;
+  const rearEdge=bedYOf(c)+p.y+fp(t,p.rot).fl;
+  return c.reach+Math.max(0,(BOX.yRear-rearEdge))/12*REACH_PER_FT;
 }
-/* the whole score: seconds a day spent fetching, plus what it weighs */
-function score(place){
-  const L=loads(place);
-  let sec=0,homeless=0,lbs=0,rear=0,behind=0,tooLong=0;
+function score(){
+  let sec=0,loose=0,lbs=0,rear=0,behind=0,used=0,cap=0;
   const per=[];
   for(const t of DB.tools){
-    const zid=place[t.id], z=zid?zone(zid):null;
-    const r=z?effReach(z,L[zid]):LOOSE_REACH;
-    const s=t.trips*2*r;                    // there and back, every trip
-    sec+=s; if(!z)homeless++;
-    per.push({tool:t,zid,reach:r,sec:s});
-    if(z&&t.len>z.maxLen)tooLong++;        // the divider moved and it stopped fitting
-    lbs+=t.lbs; rear+=t.lbs*(z?z.rear:0.9);
-    if(z&&z.rear>1)behind+=t.lbs;          // aft of the axle, levering the nose up
+    const r=reachFor(t), s=t.trips*2*r;
+    sec+=s; if(!DB.pack[t.id])loose++;
+    per.push({t,sec:s,reach:r});
+    lbs+=t.lbs;
+    const c=DB.pack[t.id]?cont(DB.pack[t.id].c):null;
+    rear+=t.lbs*(c?c.rear:0.88);
+    if(c&&c.rear>=0.98)behind+=t.lbs;
   }
-  const over=DB.zones.filter(z=>L[z.id].vol>z.vol+1e-9||L[z.id].lbs>z.lbs+1e-9);
+  for(const c of DB.conts){
+    cap+=c.w*c.l;
+    for(const t of packed(c.id)){const f=fp(t,DB.pack[t.id].rot);used+=f.fw*f.fl;}
+  }
   per.sort((a,b)=>b.sec-a.sec);
-  return {sec,min:sec/60,homeless,over,tooLong,lbs,rear,behind,rearPct:lbs?rear/lbs:0,loads:L,per};
+  return {sec,min:sec/60,loose,lbs,rear,behind,rearPct:lbs?rear/lbs:0,
+          fill:cap?used/cap:0,per};
 }
-const fits=place=>{
-  const L=loads(place);
-  if(DB.tools.some(t=>place[t.id]&&t.len>(zone(place[t.id])?.maxLen??999)))return false;
-  return DB.zones.every(z=>L[z.id].vol<=z.vol+1e-9&&L[z.id].lbs<=z.lbs+1e-9);};
 
-/* ── optimizer ───────────────────────────────────────────────────
-   Greedy first: the thing you grab most often gets the easiest spot
-   that still has room. Then pair swaps until nothing improves — crude
-   local search, but it reliably beats hand-packing on this model.   */
-function optimize(){
-  const before=score(DB.place);
-  const place={};
-  const ts=DB.tools.slice().sort((a,b)=>b.trips-a.trips);
-  for(const t of ts){
-    let best=null,bestR=Infinity;
-    const L=loads(place);
-    for(const z of DB.zones){
-      if(t.len>z.maxLen)continue;                       // it physically will not go in
-      if(L[z.id].vol+t.vol>z.vol||L[z.id].lbs+t.lbs>z.lbs)continue;
-      const r=effReach(z,{vol:L[z.id].vol+t.vol,n:L[z.id].n+1});
-      if(r<bestR){bestR=r;best=z.id;}
+/* ── auto-pack: hot things first, as close to the tailgate as they go ── */
+function autoPack(quiet){
+  const before=score().sec;
+  DB.pack={};
+  const tools=DB.tools.slice().sort((a,b)=>b.trips-a.trips);
+  const conts=DB.conts.slice().sort((a,b)=>a.reach-b.reach);
+  for(const t of tools){
+    let done=false;
+    for(const c of conts){
+      if(t.h>c.h)continue;
+      for(const rot of [0,1]){
+        const {fw,fl}=fp(t,rot);
+        if(fw>c.w||fl>c.l)continue;
+        // scan from the tailgate end forward — that is the cheap end
+        for(let y=Math.floor(c.l-fl);y>=0&&!done;y--)
+          for(let x=0;x<=c.w-fw;x++){
+            if(fitsAt(t,c,x,y,rot)){DB.pack[t.id]={c:c.id,x,y,rot};done=true;break;}
+          }
+        if(done)break;
+      }
+      if(done)break;
     }
-    if(best)place[t.id]=best;
   }
-  let cur=score(place).sec;
-  const ids=ts.map(t=>t.id);
-  for(let pass=0;pass<60;pass++){
-    let moved=false;
-    for(let i=0;i<ids.length;i++)for(let j=i+1;j<ids.length;j++){
-      const a=ids[i],b=ids[j];
-      if(place[a]===place[b])continue;
-      const trial={...place,[a]:place[b],[b]:place[a]};
-      if(!fits(trial))continue;
-      const s=score(trial).sec;
-      if(s<cur-0.01){place[a]=trial[a];place[b]=trial[b];cur=s;moved=true;}
-    }
-    if(!moved)break;
+  save();
+  if(!quiet){
+    render();
+    const d=(before-score().sec)/60;
+    toast(d>0.1?`${d.toFixed(1)} min/day less fetching`:'packed');
   }
-  DB.place=place;lastOpt=before;save();render();
-  const d=before.min-score(DB.place).min;
-  toast(d>0.05?`${d.toFixed(1)} min/day less fetching`:'already about as good as this model gets');
 }
 
 /* ── chrome ──────────────────────────────────────────────────────── */
-function setTab(t){tab=t;selZone=null;render();}
+function setTab(t){tab=t;render();}
 function toggleTheme(){
   const cur=document.documentElement.getAttribute('data-theme');
   const dark=matchMedia('(prefers-color-scheme:dark)').matches;
@@ -442,356 +406,329 @@ function toggleTheme(){
 try{const t=localStorage.getItem(THEME_KEY);if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}
 
 function render(){
-  const S=score(DB.place);
+  const S=score();
   renderKpis(S);
   document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
-  const v=el('view');
-  v.innerHTML = tab==='layout'?layoutView(S)
-              : tab==='tools'?toolsView(S)
-              : tab==='zones'?zonesView(S)
-              : sheetView(S);
-  if(tab==='layout')wirePlan();
+  el('view').innerHTML = tab==='pack'?packView(S)
+                       : tab==='tools'?toolsView()
+                       : tab==='zones'?contsView(S)
+                       : sheetView(S);
+  if(tab==='pack')wirePack();
 }
-
 function renderKpis(S){
   const payPct=S.lbs/TRUCK.payload;
   el('kpis').innerHTML=`
-    <div class="kpi"><div class="l">Fetching</div>
-      <div class="v">${fmtMin(S.sec)}</div><div class="s">min / day</div></div>
-    <div class="kpi"><div class="l">Per 5-day week</div>
-      <div class="v">${(S.min*5/60).toFixed(1)}</div><div class="s">hours</div></div>
-    <div class="kpi"><div class="l">No home</div>
-      <div class="v ${S.homeless?'bad':'good'}">${S.homeless}</div><div class="s">tools loose</div></div>
-    <div class="kpi"><div class="l">Over capacity</div>
-      <div class="v ${S.over.length?'bad':'good'}">${S.over.length}</div><div class="s">zones</div></div>
-    <div class="kpi"><div class="l">Won't fit</div>
-      <div class="v ${S.tooLong?'bad':'good'}">${S.tooLong}</div><div class="s">too long for its spot</div></div>
-    <div class="kpi"><div class="l">Tool weight</div>
-      <div class="v">${Math.round(S.lbs)}</div><div class="s">lbs</div></div>
+    <div class="kpi"><div class="l">Fetching</div><div class="v">${fmtMin(S.sec)}</div><div class="s">min / day</div></div>
+    <div class="kpi"><div class="l">Per week</div><div class="v">${(S.min*5/60).toFixed(1)}</div><div class="s">hours</div></div>
+    <div class="kpi"><div class="l">Won't fit anywhere</div>
+      <div class="v ${S.loose?'bad':'good'}">${S.loose}</div><div class="s">still loose</div></div>
+    <div class="kpi"><div class="l">Floor used</div><div class="v">${Math.round(S.fill*100)}%</div><div class="s">of all compartments</div></div>
+    <div class="kpi"><div class="l">Tool weight</div><div class="v">${Math.round(S.lbs)}</div><div class="s">lbs</div></div>
     <div class="kpi"><div class="l">Payload used</div>
       <div class="v ${payPct>0.6?'bad':payPct>0.35?'warn':'good'}">${Math.round(payPct*100)}%</div>
-      <div class="s">of ${TRUCK.payload} lb</div></div>
-    <div class="kpi"><div class="l">Behind rear axle</div>
-      <div class="v ${S.behind>120?'warn':'good'}">${Math.round(S.behind)}</div>
-      <div class="s">lbs at the tailgate</div></div>`;
+      <div class="s">of ${TRUCK.payload} lb</div></div>`;
 }
 
-/* ── layout: the truck plan, and what is in each zone ────────────── */
-function layoutView(S){
-  const L=S.loads;
-  const rects=DB.zones.map(z=>{
-    const ld=L[z.id],fill=z.vol?ld.vol/z.vol:0;
-    const over=ld.vol>z.vol+1e-9||ld.lbs>z.lbs+1e-9;
-    const col=over?'var(--red)':fill>0.85?'var(--amber)':fill>0.35?'var(--blue)':'var(--green)';
-    const on=selZone===z.id;
-    return `<g class="zone-rect" data-zone="${z.id}" onclick="selZone=selZone==='${z.id}'?null:'${z.id}';render()">
-      <rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="1.6"
-            fill="${col}" fill-opacity="${0.10+Math.min(fill,1)*0.42}"
-            stroke="${on?'var(--text)':col}" stroke-width="${on?1.1:0.5}"></rect>
-      ${z.w<22
-        ? /* sideways, and only what actually fits in the rect */
-          `${z.h>=14?`<text class="zone-lbl" transform="translate(${z.x+z.w/2+1.2},${z.y+z.h-2}) rotate(-90)">${esc(z.ab||z.name)}</text>`:''}
-           ${z.h>=7?`<text class="zone-sub" transform="translate(${z.x+z.w/2-2.4},${z.y+z.h-2}) rotate(-90)">${ld.n} · ${z.reach}s</text>`:''}`
-        : z.h<11
-        ? `<text class="zone-lbl" x="${z.x+1.8}" y="${z.y+z.h/2+1.3}">${esc(z.ab||z.name)}</text>
-           <text class="zone-sub" x="${z.x+z.w-1.8}" y="${z.y+z.h/2+1.2}" text-anchor="end">${ld.n} · ${z.reach}s · ${Math.round(fill*100)}%</text>`
-        : `<text class="zone-lbl" x="${z.x+1.8}" y="${z.y+5}">${esc(z.ab||z.name)}</text>
-           <text class="zone-sub" x="${z.x+1.8}" y="${z.y+8.8}">${ld.n} item${ld.n===1?'':'s'} · ${z.reach}s · ${Math.round(fill*100)}% full</text>`}
+/* ── the packing canvas ──────────────────────────────────────────── */
+let pending=null;                       // a tray item waiting for a spot
+
+function packView(S){
+  const conts=DB.conts.map(c=>{
+    const hot=selCont===c.id;
+    return `<g>
+      <rect class="cont-rect${hot?' hot':''}" data-cont="${c.id}"
+            x="${c.ax}" y="${c.ay}" width="${c.w}" height="${c.l}" rx="1"></rect>
+      <text class="cont-lbl" x="${c.ax+1}" y="${c.below?c.ay+c.l+3.4:c.ay-3}">${esc(c.ab||c.name)}</text>
+      <text class="cont-dim" x="${c.ax+1}" y="${c.below?c.ay+c.l+6:c.ay-0.6}">${c.l.toFixed(0)}×${c.w.toFixed(0)}×${c.h}" ${c.reach}s</text>
     </g>`;
   }).join('');
 
-  const sel=selZone?zone(selZone):null;
-  const selBody=sel?zonePanel(sel,S):`
-    <div class="panel-body"><div class="hint">Tap a zone on the plan to see what's in it.
-      Everything below is placed with the dropdowns — the plan is the picture, the list is the truth.</div></div>`;
+  const items=DB.tools.filter(t=>DB.pack[t.id]).map(t=>{
+    const p=DB.pack[t.id], c=cont(p.c);
+    if(!c)return '';
+    const f=fp(t,p.rot);
+    const fits=Math.floor((f.fw-1.6)/1.35);          // ~1.35 units per character
+    const label=fits>=4?(t.name.length>fits?t.name.slice(0,fits-1)+'…':t.name):'';
+    const big=f.fl>=4&&label;
+    return `<g class="item" data-tool="${t.id}">
+      <rect x="${c.ax+p.x}" y="${c.ay+p.y}" width="${f.fw}" height="${f.fl}" rx="0.7"
+            fill="${CAT_COLOR[t.cat]||'#bbb'}"></rect>
+      ${big?`<text x="${c.ax+p.x+0.8}" y="${c.ay+p.y+3}">${esc(label)}</text>`:''}
+    </g>`;
+  }).join('');
 
-  const cmp=lastOpt?`<div class="panel"><div class="panel-head"><h3>Before / after</h3></div>
-    <div class="panel-body"><div class="cmp">
-      <div class="cmp-row"><span class="lab">Your layout</span><div class="track">
-        <div class="fill" style="width:100%">${fmtMin(lastOpt.sec)} min</div></div></div>
-      <div class="cmp-row"><span class="lab">Optimized</span><div class="track">
-        <div class="fill best" style="width:${Math.max(6,(S.sec/lastOpt.sec)*100)}%">${fmtMin(S.sec)} min</div></div></div>
-    </div><div class="hint" style="margin-top:8px">
-      ${(lastOpt.min-S.min).toFixed(1)} min/day, ${((lastOpt.min-S.min)*5/60).toFixed(1)} hours a week per truck.
-      Multiply by the number of trucks before you decide it's small.</div></div></div>`:'';
+  const loose=DB.tools.filter(t=>!DB.pack[t.id]);
+  const tray=loose.length?loose.map(t=>`<span class="chipitem${pending===t.id?' on':''}"
+      onclick="pickPending('${t.id}')" style="border-color:${pending===t.id?'var(--blue)':'var(--border)'}">
+      <i style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${CAT_COLOR[t.cat]}"></i>
+      ${esc(t.name)} <span class="d">${t.l}×${t.w}×${t.h}"</span></span>`).join('')
+    : `<span class="hint">Everything has a home.</span>`;
 
-  return `<div class="split">
-    <div>
-      <div class="panel"><div class="panel-head"><h3>Truck, from above</h3>
-        <span class="n">Tacoma Access Cab · 6' bed</span></div>
-        <div class="panel-body">
-          <svg class="plan" viewBox="0 0 82 216">
-            <rect class="truck-body" x="3.8" y="22" width="74.4" height="190" rx="9"></rect>
-            <rect class="truck-body" x="10" y="112" width="56.7" height="73.7" rx="2"
-                  stroke-dasharray="2 1.6"></rect>
-            <line x1="3.8" y1="46" x2="78.2" y2="46" stroke="var(--border)" stroke-width=".9"></line>
-            <line x1="3.8" y1="112" x2="78.2" y2="112" stroke="var(--border)" stroke-width=".9"></line>
-            <line x1="3.8" y1="185.7" x2="78.2" y2="185.7" stroke="var(--border)" stroke-width=".9"></line>
-            <rect x="9.2" y="130.2" width="58.3" height="45.6" rx="1.4" fill="none"
-                  stroke="var(--muted)" stroke-width="0.9"></rect>
-            <text class="truck-note" x="10" y="1.6">not drawable in plan — the rack is overhead, the other is underneath</text>
-            <text class="truck-note" x="4.5" y="44">hood</text>
-            <text class="truck-note" x="4.5" y="110">cab · jump seats</text>
-            <text class="truck-note" x="4.5" y="129">wooden box on the wheel wells</text>
-            <text class="truck-note" x="4.5" y="184.4">bed · 73.7" × 56.7"</text>
-            <text class="truck-note" x="4.5" y="192">tailgate</text>
-            ${rects}
-            ${dividers()}
-          </svg>
-          <div class="hint" style="margin-top:8px"><b>Drag the two orange dividers</b> to resize the
-            cubbies — the bays, their weight ratings and the longest thing that fits all follow.
-            Drawn to scale in inches. Green is roomy, amber is nearly full, red is over
-            capacity. Fuller zones cost extra seconds — things get buried.</div>
-        </div></div>
-      ${cmp}
+  return `<div class="packwrap">
+      <svg class="pack" viewBox="-4 0 212 205">
+        <rect x="4" y="30" width="74.4" height="166" rx="8" fill="none" stroke="var(--border)" stroke-width="1"></rect>
+        <line x1="4" y1="52" x2="78.4" y2="52" stroke="var(--border)" stroke-width=".6"></line>
+        <line x1="4" y1="110" x2="78.4" y2="110" stroke="var(--border)" stroke-width=".6"></line>
+        <text class="grp" x="4" y="26">the truck</text>
+        <text class="truck-note" x="5" y="50">hood</text>
+        <text class="truck-note" x="5" y="108">cab</text>
+        <text class="truck-note" x="5" y="201">tailgate — the end you stand at</text>
+        <text class="grp" x="88" y="6">on top / under the box</text>
+        <text class="grp" x="150" y="6">overhead</text>
+        ${conts}
+        ${items}
+        ${dividers()}
+      </svg>
     </div>
-    <div>
-      <div class="panel"><div class="panel-head">
-          <h3>${sel?esc(sel.name):'Zone'}</h3>
-          ${sel?`<span class="spacer"></span><button class="btn btn-sm" onclick="selZone=null;render()">clear</button>`:''}
-        </div>${selBody}</div>
-
-      <div class="panel"><div class="panel-head"><h3>Where everything lives</h3>
-        <span class="n">${DB.tools.length} tools</span>
-        <span class="spacer"></span>
-        <button class="btn btn-sm" onclick="clearPlace()">empty the truck</button></div>
-        <div class="panel-body flush">${placeRows(S)}</div></div>
-
-      <div class="panel"><div class="panel-head"><h3>Biggest time sinks</h3>
-        <span class="n">where the minutes actually go</span></div>
-        <div class="panel-body flush">${S.per.slice(0,8).map(p=>{
-          const z=p.zid?zone(p.zid):null;
-          return `<div class="row"><span class="nm">${esc(p.tool.name)}</span>
-            <span class="tag ${z?'zone':'hot'}">${z?esc(z.name):'no home'}</span>
-            <span class="meta">${p.tool.trips}×/day · ${fmtMin(p.sec)} min</span></div>`;
-        }).join('')}</div></div>
-    </div></div>`;
+    <div class="tray"><h4>${loose.length?`${loose.length} with nowhere to go — tap one, then tap a compartment`:'Tray'}</h4>${tray}</div>
+    <div class="legend">
+      ${Object.entries(CAT_COLOR).map(([k,v])=>`<span><i style="background:${v}"></i>${k}</span>`).join('')}
+      <span style="color:var(--faint)">drag to move · tap to rotate · drag off a compartment to unpack</span>
+    </div>
+    <div class="panel" style="margin-top:12px"><div class="panel-head"><h3>Where the minutes go</h3>
+      <span class="n">worst first</span></div>
+      <div class="panel-body flush">${S.per.slice(0,8).map(x=>{
+        const p=DB.pack[x.t.id], c=p?cont(p.c):null;
+        return `<div class="row"><span class="nm">${esc(x.t.name)}</span>
+          <span class="tag ${c?'zone':'hot'}">${c?esc(c.name):'loose'}</span>
+          <span class="meta">${x.t.trips}×/day · ${x.reach.toFixed(0)}s · ${fmtMin(x.sec)} min</span></div>`;
+      }).join('')}</div></div>`;
 }
 
-/* The two dividers, as things you can grab. */
 function dividers(){
-  return [['dL','boxD',BOX.x0],['dP','boxP',47.8]].map(([k,bayId,x])=>{
-    const d=DB.box[k], y=BOX.y1-d;
-    return `<g class="divider" data-k="${k}" data-x="${x}">
-      <line class="dline" x1="${x}" y1="${y}" x2="${x+BOX.bayW}" y2="${y}"></line>
-      <line class="dgrab" x1="${x}" y1="${y}" x2="${x+BOX.bayW}" y2="${y}"></line>
-      <text class="dlbl" x="${x+BOX.bayW/2}" y="${y-1.4}" text-anchor="middle">${d}" cubby ⇕</text>
+  return [['dL','cubD'],['dP','cubP']].map(([k,cubId])=>{
+    const c=cont(cubId), y=c.ay;
+    return `<g class="divider" data-k="${k}">
+      <line class="dline" x1="${c.ax}" y1="${y}" x2="${c.ax+c.w}" y2="${y}"></line>
+      <line class="dgrab" x1="${c.ax}" y1="${y}" x2="${c.ax+c.w}" y2="${y}"></line>
+      <text class="dlbl" x="${c.ax+c.w/2}" y="${y-1.2}" text-anchor="middle">${DB.box[k]}" ⇕</text>
     </g>`;
   }).join('');
 }
-/* Dragging must not re-render — replacing the DOM mid-drag drops the
-   pointer capture. So move the four rects by hand and only do a real
-   render on release. */
-function paintBox(svg){
-  for(const id of ['boxD','cubD','boxP','cubP']){
-    const z=zone(id), g=svg.querySelector(`[data-zone="${id}"]`);
-    if(!g)continue;
-    g.querySelector('rect').setAttribute('y',z.y);
-    g.querySelector('rect').setAttribute('height',z.h);
-    const txt=g.querySelectorAll('text');
-    if(txt[0]){txt[0].setAttribute('transform',`translate(${z.x+z.w/2+1.2},${z.y+z.h-2}) rotate(-90)`);
-               txt[0].style.display=z.h>=14?'':'none';}
-    if(txt[1]){txt[1].setAttribute('transform',`translate(${z.x+z.w/2-2.4},${z.y+z.h-2}) rotate(-90)`);
-               txt[1].style.display=z.h>=7?'':'none';}
-  }
-  for(const g of svg.querySelectorAll('.divider')){
-    const k=g.dataset.k, x=+g.dataset.x, d=DB.box[k], y=BOX.y1-d;
-    g.querySelectorAll('line').forEach(l=>{l.setAttribute('y1',y);l.setAttribute('y2',y);});
-    const t=g.querySelector('text');
-    t.setAttribute('y',y-1.4);
-    t.textContent=`${d}" cubby ⇕`;
-  }
-}
-function wirePlan(){
-  const svg=document.querySelector('svg.plan');
+function pickPending(id){pending=pending===id?null:id;render();}
+
+function wirePack(){
+  const svg=document.querySelector('svg.pack');
   if(!svg)return;
+  const toLocal=e=>{
+    const pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
+  };
+  const contAt=(px,py)=>DB.conts.find(c=>px>=c.ax&&px<=c.ax+c.w&&py>=c.ay&&py<=c.ay+c.l);
+
+  // drop a tray item
+  for(const r of svg.querySelectorAll('[data-cont]')){
+    r.addEventListener('pointerdown',e=>{
+      if(!pending)return;
+      const loc=toLocal(e), c=cont(r.dataset.cont), t=tool(pending);
+      const f=fp(t,0);
+      let x=Math.round((loc.x-c.ax-f.fw/2)*2)/2, y=Math.round((loc.y-c.ay-f.fl/2)*2)/2;
+      const spot=findSpot(t,c,x,y);
+      if(!spot)return toast(`${t.name} does not fit there`);
+      DB.pack[t.id]=spot;pending=null;save();render();
+    });
+  }
+
+  // move / rotate / unpack an item
+  for(const g of svg.querySelectorAll('.item')){
+    g.addEventListener('pointerdown',e=>{
+      e.preventDefault();e.stopPropagation();
+      const id=g.dataset.tool, t=tool(id), p=DB.pack[id], c=cont(p.c);
+      const start=toLocal(e);
+      const grabX=start.x-(c.ax+p.x), grabY=start.y-(c.ay+p.y);
+      let moved=false;
+      g.setPointerCapture(e.pointerId);
+      g.classList.add('drag');
+      const rect=g.querySelector('rect'), txt=g.querySelector('text');
+      const move=ev=>{
+        const loc=toLocal(ev);
+        if(Math.abs(loc.x-start.x)>1||Math.abs(loc.y-start.y)>1)moved=true;
+        rect.setAttribute('x',loc.x-grabX);rect.setAttribute('y',loc.y-grabY);
+        if(txt){txt.setAttribute('x',loc.x-grabX+1);txt.setAttribute('y',loc.y-grabY+3.2);}
+      };
+      const up=ev=>{
+        g.removeEventListener('pointermove',move);
+        g.removeEventListener('pointerup',up);
+        g.classList.remove('drag');
+        if(!moved){                                  // a tap is a rotate
+          const spot=findSpot(t,c,p.x,p.y,1-p.rot,true);
+          if(spot)DB.pack[id]=spot; else toast('no room to turn it');
+          save();render();return;
+        }
+        const loc=toLocal(ev);
+        const target=contAt(loc.x,loc.y);
+        if(!target){delete DB.pack[id];save();render();toast(`${t.name} is loose again`);return;}
+        let x=Math.round((loc.x-grabX-target.ax)*2)/2, y=Math.round((loc.y-grabY-target.ay)*2)/2;
+        const spot=findSpot(t,target,x,y,p.rot);
+        if(spot)DB.pack[id]=spot; else toast(`${t.name} does not fit in ${target.name}`);
+        save();render();
+      };
+      g.addEventListener('pointermove',move);
+      g.addEventListener('pointerup',up);
+    });
+  }
+  wireDividers(svg,toLocal);
+}
+
+/* Try where they dropped it, then spiral out a little, then give up. */
+function findSpot(t,c,x,y,rot=0,mustRotate){
+  const tryRot=mustRotate?[rot]:[rot,1-rot];
+  for(const r of tryRot){
+    const {fw,fl}=fp(t,r);
+    if(t.h>c.h||fw>c.w||fl>c.l)continue;
+    const cx=Math.min(Math.max(0,x),c.w-fw), cy=Math.min(Math.max(0,y),c.l-fl);
+    if(fitsAt(t,c,cx,cy,r,t.id))return {c:c.id,x:cx,y:cy,rot:r};
+    for(let d=1;d<=Math.max(c.w,c.l);d++){
+      for(const [dx,dy] of [[d,0],[-d,0],[0,d],[0,-d],[d,d],[-d,-d],[d,-d],[-d,d]]){
+        const nx=Math.min(Math.max(0,cx+dx),c.w-fw), ny=Math.min(Math.max(0,cy+dy),c.l-fl);
+        if(fitsAt(t,c,nx,ny,r,t.id))return {c:c.id,x:nx,y:ny,rot:r};
+      }
+    }
+  }
+  return null;
+}
+
+function wireDividers(svg,toLocal){
   for(const g of svg.querySelectorAll('.divider')){
     g.addEventListener('pointerdown',e=>{
       e.preventDefault();e.stopPropagation();
       const k=g.dataset.k;
       g.setPointerCapture(e.pointerId);
       const move=ev=>{
-        const pt=svg.createSVGPoint();
-        pt.x=ev.clientX;pt.y=ev.clientY;
-        const loc=pt.matrixTransform(svg.getScreenCTM().inverse());
-        const d=Math.round(Math.min(BOX.maxCub,Math.max(BOX.minCub,BOX.y1-loc.y)));
+        const loc=toLocal(ev);
+        const d=Math.round(Math.min(BOX.maxCub,Math.max(BOX.minCub,BOX.yRear-loc.y)));
         if(d===DB.box[k])return;
-        DB.box[k]=d;syncBox();paintBox(svg);renderKpis(score(DB.place));
+        DB.box[k]=d;syncBox();
       };
       const up=()=>{
         g.removeEventListener('pointermove',move);
         g.removeEventListener('pointerup',up);
-        g.removeEventListener('pointercancel',up);
+        // anything the divider just cut through has to come out
+        let bumped=0;
+        for(const t of DB.tools){
+          const p=DB.pack[t.id];if(!p)continue;
+          const c=cont(p.c);if(!c)continue;
+          if(!fitsAt(t,c,p.x,p.y,p.rot,t.id)||p.y+fp(t,p.rot).fl>c.l+1e-6){
+            const spot=findSpot(t,c,p.x,p.y,p.rot);
+            if(spot)DB.pack[t.id]=spot; else {delete DB.pack[t.id];bumped++;}
+          }
+        }
         save();render();
+        if(bumped)toast(`${bumped} item${bumped>1?'s':''} no longer fit`);
       };
       g.addEventListener('pointermove',move);
       g.addEventListener('pointerup',up);
-      g.addEventListener('pointercancel',up);
     });
   }
 }
 
-function zonePanel(z,S){
-  const ld=S.loads[z.id];
-  const inside=DB.tools.filter(t=>DB.place[t.id]===z.id).sort((a,b)=>b.trips-a.trips);
-  const vPct=Math.min(100,ld.vol/z.vol*100), wPct=Math.min(100,ld.lbs/z.lbs*100);
-  const cls=p=>p>100?'bad':p>85?'warn':'';
-  return `<div class="panel-body">
-      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--muted)">
-        <span><b style="color:var(--text)">${z.reach}s</b> base reach</span>
-        <span><b style="color:var(--text)">${effReach(z,ld).toFixed(1)}s</b> as packed</span>
-        <span><b style="color:var(--text)">${Math.round(z.rear*100)}%</b> on rear axle</span>
-      </div>
-      <div style="margin-top:9px">
-        <div class="hint">Space ${ld.vol.toFixed(1)} / ${z.vol} cu ft</div>
-        <div class="bar"><i class="${cls(ld.vol/z.vol*100)}" style="width:${vPct}%"></i></div>
-        <div class="hint" style="margin-top:6px">Weight ${Math.round(ld.lbs)} / ${z.lbs} lbs</div>
-        <div class="bar"><i class="${cls(ld.lbs/z.lbs*100)}" style="width:${wPct}%"></i></div>
-      </div></div>
-    <div class="panel-body flush" style="border-top:1px solid var(--border-soft)">
-      ${inside.length?inside.map(t=>`<div class="row"><span class="nm">${esc(t.name)}</span>
-          <span class="meta">${t.trips}×/day · ${t.lbs} lb</span>
-          <button class="btn btn-sm" onclick="place('${t.id}','')">out</button></div>`).join('')
-        :`<div class="row"><span class="hint">Empty.</span></div>`}
-    </div>`;
-}
-
-function placeRows(S){
-  const order=DB.tools.slice().sort((a,b)=>b.trips-a.trips);
-  return order.map(t=>{
-    const zid=DB.place[t.id]||'';
-    const hot=t.trips>=8;
-    return `<div class="row${selZone&&zid===selZone?' sel':''}">
-      <span class="nm">${esc(t.name)}</span>
-      <span class="tag${zid&&t.len>(zone(zid)?.maxLen??999)?' hot':''}">${t.len}"</span>
-      ${hot?'<span class="tag hot">grabbed a lot</span>':''}
-      ${t.cat==='stock'?'<span class="tag">week stock</span>':''}
-      <span class="meta">${t.trips}×/day</span>
-      <select onchange="place('${t.id}',this.value)" style="max-width:168px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text);font:inherit;font-size:11.5px">
-        <option value=""${zid?'':' selected'}>— no home —</option>
-        ${DB.zones.map(z=>{
-          const no=t.len>z.maxLen;
-          return `<option value="${z.id}"${zid===z.id?' selected':''}${no?' disabled':''}>${esc(z.name)}${no?` — ${z.maxLen}" max`:''}</option>`;
-        }).join('')}
-      </select></div>`;
-  }).join('');
-}
-function place(tid,zid){
-  if(zid)DB.place[tid]=zid; else delete DB.place[tid];
-  save();
-  setTimeout(render,0);
-}
-function clearPlace(){DB.place={};lastOpt=null;save();render();}
-
-/* ── tools: the editable inventory ───────────────────────────────── */
-function toolsView(S){
+/* ── tools ───────────────────────────────────────────────────────── */
+function toolsView(){
   const rows=DB.tools.slice().sort((a,b)=>b.trips-a.trips).map(t=>`<tr>
     <td><input value="${esc(t.name)}" onchange="editTool('${t.id}','name',this.value)"></td>
-    <td><input value="${esc(t.cat||'')}" onchange="editTool('${t.id}','cat',this.value)" style="max-width:110px"></td>
+    <td><select onchange="editTool('${t.id}','cat',this.value)" style="max-width:110px">
+      ${Object.keys(CAT_COLOR).map(k=>`<option value="${k}"${t.cat===k?' selected':''}>${k}</option>`).join('')}
+    </select></td>
     <td><input class="num" value="${t.trips}" onchange="editTool('${t.id}','trips',this.value)"></td>
-    <td><input class="num" value="${t.vol}" onchange="editTool('${t.id}','vol',this.value)"></td>
+    <td><input class="num" value="${t.l}" onchange="editTool('${t.id}','l',this.value)"></td>
+    <td><input class="num" value="${t.w}" onchange="editTool('${t.id}','w',this.value)"></td>
+    <td><input class="num" value="${t.h}" onchange="editTool('${t.id}','h',this.value)"></td>
     <td><input class="num" value="${t.lbs}" onchange="editTool('${t.id}','lbs',this.value)"></td>
-    <td><input class="num" value="${t.len}" onchange="editTool('${t.id}','len',this.value)"></td>
     <td style="text-align:right"><button class="btn btn-sm btn-danger" onclick="delTool('${t.id}')">×</button></td>
   </tr>`).join('');
   return `<div class="panel"><div class="panel-head"><h3>Tools</h3>
-      <span class="n">trips/day is the number that drives everything</span>
+      <span class="n">real inches — that is what decides whether it goes in</span>
       <span class="spacer"></span><button class="btn btn-sm" onclick="addTool()">+ tool</button></div>
     <div class="panel-body flush"><table>
-      <thead><tr><th>Tool</th><th>Category</th><th>Trips / day</th><th>cu ft</th><th>lbs</th><th>Length in</th><th></th></tr></thead>
+      <thead><tr><th>Tool</th><th>Kind</th><th>Trips/day</th><th>Long in</th><th>Wide in</th><th>Tall in</th><th>lbs</th><th></th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <div class="panel-body"><div class="hint">
-      <b>Trips/day</b> is how many times somebody walks back to the truck for it across a whole day —
-      count both crew. That is the only number the optimizer really cares about. Volume and weight
-      just decide what fits where. All of it is a guess until you watch a couple of days; edit freely.
+      <b>Tall</b> is the one that quietly rules the box out: the frame is 2x6, so nothing over
+      ${BOX.depth}" goes in a compartment however much floor it has.
+      <b>Trips/day</b> is how many times a day somebody walks back for it across both crew — that is what
+      decides who gets the tailgate end. Measure a few and the rest of this stops being my guesses.
     </div></div></div>`;
 }
 function editTool(id,k,v){
   const t=tool(id);if(!t)return;
   t[k]=(k==='name'||k==='cat')?v:Math.max(0,num(v,0));
-  save();
-  setTimeout(render,0);   // let the field finish blurring before the DOM is replaced
+  const p=DB.pack[id];
+  if(p){const c=cont(p.c);const spot=c&&findSpot(t,c,p.x,p.y,p.rot);
+        if(spot)DB.pack[id]=spot; else delete DB.pack[id];}
+  save();setTimeout(render,0);
 }
 function addTool(){
-  DB.tools.push({id:uid(),name:'New tool',cat:'',vol:0.5,lbs:5,trips:1});
+  DB.tools.push({id:uid(),name:'New tool',cat:'working',l:8,w:6,h:4,lbs:5,trips:1});
   save();render();
 }
-function delTool(id){
-  DB.tools=DB.tools.filter(t=>t.id!==id);delete DB.place[id];save();render();
-}
+function delTool(id){DB.tools=DB.tools.filter(t=>t.id!==id);delete DB.pack[id];save();render();}
 
-/* ── zones: the truck itself ─────────────────────────────────────── */
-function zonesView(S){
-  const rows=DB.zones.slice().sort((a,b)=>a.reach-b.reach).map(z=>{
-    const ld=S.loads[z.id];
+/* ── compartments ────────────────────────────────────────────────── */
+function contsView(S){
+  const rows=DB.conts.slice().sort((a,b)=>a.reach-b.reach).map(c=>{
+    const inside=packed(c.id);
+    const used=inside.reduce((a,t)=>{const f=fp(t,DB.pack[t.id].rot);return a+f.fw*f.fl;},0);
+    const lbs=inside.reduce((a,t)=>a+t.lbs,0);
+    const box=DB.box&&['boxD','boxP','cubD','cubP','boxC'].includes(c.id);
     return `<tr>
-      <td><input value="${esc(z.name)}" onchange="editZone('${z.id}','name',this.value)"></td>
-      <td><input class="num" value="${z.reach}" onchange="editZone('${z.id}','reach',this.value)"></td>
-      <td><input class="num" value="${z.vol}" onchange="editZone('${z.id}','vol',this.value)"></td>
-      <td><input class="num" value="${z.lbs}" onchange="editZone('${z.id}','lbs',this.value)"></td>
-      <td><input class="num" value="${z.rear}" onchange="editZone('${z.id}','rear',this.value)"></td>
-      <td><input class="num" value="${z.slots}" onchange="editZone('${z.id}','slots',this.value)"></td>
-      <td><input class="num" value="${z.maxLen}" onchange="editZone('${z.id}','maxLen',this.value)"></td>
-      <td class="meta" style="font-family:var(--mono);font-size:11px;white-space:nowrap">
-        ${ld.n} · ${ld.vol.toFixed(1)} cf · ${Math.round(ld.lbs)} lb</td>
+      <td>${esc(c.name)}${box?' <span class="tag">from the dividers</span>':''}</td>
+      <td><input class="num" value="${c.reach}" onchange="editCont('${c.id}','reach',this.value)"></td>
+      <td class="meta" style="font-family:var(--mono)">${c.l.toFixed(0)}×${c.w.toFixed(0)}×${c.h}"</td>
+      <td class="meta" style="font-family:var(--mono)">${Math.round(used/(c.w*c.l)*100)}%</td>
+      <td class="meta" style="font-family:var(--mono)">${inside.length} · ${Math.round(lbs)} lb</td>
+      <td><input class="num" value="${c.rear}" onchange="editCont('${c.id}','rear',this.value)"></td>
     </tr>`;
   }).join('');
   return `<div class="panel"><div class="panel-head"><h3>${esc(TRUCK.name)}</h3></div>
       <div class="panel-body"><div class="hint">
-        Bed ${TRUCK.bedL}" long × ${TRUCK.bedW}" wide at the rails, ${TRUCK.bedWells}" between the wheel
-        wells, ${TRUCK.bedD}" deep — about ${TRUCK.bedCuFt} cu ft. Payload around ${TRUCK.payload} lb
-        depending on trim, and that is people, tools, stakes, water and fuel together.<br><br>
-        <b>The box:</b> ${esc(TRUCK.box)}
+        Bed ${TRUCK.bedL}" × ${TRUCK.bedW}", ${TRUCK.bedWells}" between the wheel wells, ${TRUCK.bedD}" deep.
+        Payload about ${TRUCK.payload} lb including people.<br><br>
+        <b>The box</b> spans the whole bed — ${BOX.L}" × ${BOX.W}", 2x6 frame so ${BOX.depth}" inside,
+        three ${BAYW}" compartments across the width. One divider in the driver bay and one in the
+        passenger bay makes a cubby at the tailgate end of each; drag them on the packing canvas.
+        Everything the box covers is only reachable by lifting a lid, and the bed floor underneath
+        becomes the hardest place in the truck to get at.
       </div></div></div>
-    <div class="panel"><div class="panel-head"><h3>Zones</h3>
-      <span class="n">reach seconds is the whole model — measure it once with a stopwatch</span></div>
+    <div class="panel"><div class="panel-head"><h3>Compartments</h3>
+      <span class="n">reach seconds is the one number worth timing</span></div>
       <div class="panel-body flush"><table>
-        <thead><tr><th>Zone</th><th>Reach (s)</th><th>cu ft</th><th>lbs max</th><th>Rear axle share</th><th>Slots</th><th>Max length in</th><th>Holding</th></tr></thead>
+        <thead><tr><th>Compartment</th><th>Reach s</th><th>L×W×H</th><th>Floor used</th><th>Holding</th><th>Rear axle</th></tr></thead>
         <tbody>${rows}</tbody></table></div>
       <div class="panel-body"><div class="hint">
-        <b>Reach</b> = walk to it, open it, get the tool, be back at the work. Time it on a real truck and
-        these numbers stop being guesses.<br>
-        <b>Rear axle share</b> = how much of that zone's weight lands on the back tires. Behind the axle is
-        over 1.0 because it levers weight off the front. Cab is low because it is ahead of the axle.<br>
-        <b>Slots</b> = how many separate things can live there and still be found at a glance. A divided box
-        has plenty; an open bed floor has about four, because past that it is a pile. Every item over the
-        <b>Max length</b> = the longest thing that lies flat in there. For the four box compartments it
-        is set by where you drag the dividers, so editing it here only sticks until the next drag.<br>
-        Every item over the slot count adds ${RUMMAGE}s to everything in that zone — which is what stops the optimizer from
-        answering \"put all of it on the tailgate\".
+        <b>Reach</b> = walk to it, open it, get the thing, be back at the work, standing at the tailgate.
+        A long bay costs more at the far end — ${REACH_PER_FT}s per foot up the bed — which is why the
+        auto-pack fills from the tailgate forward.
       </div></div></div>`;
 }
-function editZone(id,k,v){
-  const z=zone(id);if(!z)return;
-  z[k]=k==='name'?v:Math.max(0,num(v,0));
-  save();
-  setTimeout(render,0);
+function editCont(id,k,v){
+  const c=cont(id);if(!c)return;
+  c[k]=Math.max(0,num(v,0));save();setTimeout(render,0);
 }
 
-/* ── the layout sheet: the thing you tape inside the toolbox lid ── */
+/* ── the sheet ───────────────────────────────────────────────────── */
 function sheetView(S){
-  const zs=DB.zones.slice().sort((a,b)=>a.reach-b.reach);
-  const body=zs.map(z=>{
-    const inside=DB.tools.filter(t=>DB.place[t.id]===z.id).sort((a,b)=>b.trips-a.trips);
-    const ld=S.loads[z.id];
+  const cs=DB.conts.slice().sort((a,b)=>a.reach-b.reach);
+  const body=cs.map(c=>{
+    const inside=packed(c.id).sort((a,b)=>b.trips-a.trips);
     return `<div class="sheet-zone">
-      <h4>${esc(z.name)} <span class="cap">${z.reach}s · ${ld.vol.toFixed(1)}/${z.vol} cu ft · ${Math.round(ld.lbs)}/${z.lbs} lb</span></h4>
-      ${inside.length?`<ul>${inside.map(t=>`<li>${esc(t.name)}${t.trips>=8?' <b>(hot)</b>':''}</li>`).join('')}</ul>`
-        :`<div class="hint" style="margin-top:4px">— empty —</div>`}</div>`;
+      <h4>${esc(c.name)} <span class="cap">${c.reach}s · ${c.l.toFixed(0)}×${c.w.toFixed(0)}×${c.h}"</span></h4>
+      ${inside.length?`<ul>${inside.map(t=>{
+        const p=DB.pack[t.id];
+        const d=c.fromRear?Math.max(0,BOX.yRear-((c.bedY??BOX.yFront)+p.y+fp(t,p.rot).fl)):null;
+        return `<li>${esc(t.name)} <span class="cap">${p.rot?'turned · ':''}${d==null?'':`${d.toFixed(0)}" in from the tailgate`}</span>${t.trips>=8?' <b>(hot)</b>':''}</li>`;
+      }).join('')}</ul>`:`<div class="hint" style="margin-top:4px">— empty —</div>`}</div>`;
   }).join('');
-  const loose=DB.tools.filter(t=>!DB.place[t.id]);
+  const loose=DB.tools.filter(t=>!DB.pack[t.id]);
   return `<div class="sheet">
     <h2>Truck layout — standard</h2>
-    <div class="sub">${esc(TRUCK.name)} · every truck set up the same way ·
-      ${fmtMin(S.sec)} min/day of fetching · ${Math.round(S.lbs)} lb of tools ·
-      ${Math.round(S.rearPct*100)}% of it on the rear axle</div>
+    <div class="sub">${esc(TRUCK.name)} · ${fmtMin(S.sec)} min/day of fetching ·
+      ${Math.round(S.lbs)} lb of tools · ${Math.round(S.fill*100)}% of the floor used</div>
     ${body}
-    ${loose.length?`<div class="sheet-zone"><h4 style="color:var(--red)">No home yet</h4>
-      <ul>${loose.map(t=>`<li>${esc(t.name)}</li>`).join('')}</ul></div>`:''}
+    ${loose.length?`<div class="sheet-zone"><h4 style="color:var(--red)">Would not fit anywhere</h4>
+      <ul>${loose.map(t=>`<li>${esc(t.name)} — ${t.l}×${t.w}×${t.h}"</li>`).join('')}</ul></div>`:''}
     <div class="hint" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px">
-      Print this and tape it inside the crossover lid. A layout only saves time if every truck matches it
-      and a tool goes back where it came from.
-    </div>
+      Print this and tape it inside a lid. A layout only saves time if every truck matches it and
+      a thing goes back where it came from.</div>
     <div style="margin-top:12px"><button class="btn" onclick="window.print()">print</button>
       <button class="btn" onclick="exportJson()">export JSON</button></div>
   </div>`;
@@ -802,10 +739,9 @@ async function exportJson(){
   const filename=`truck-layout-${new Date().toISOString().slice(0,10)}.json`;
   const host=window.claude;
   if(host&&typeof host.use==='function'){
-    try{
-      const d=await host.use('downloads');
-      if(d){await d.save({filename,data:json});toast('exported');return;}
-    }catch(e){toast(e?.code==='declined'?'export cancelled':'export failed');return;}
+    try{const d=await host.use('downloads');
+        if(d){await d.save({filename,data:json});toast('exported');return;}}
+    catch(e){toast(e?.code==='declined'?'export cancelled':'export failed');return;}
   }
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));

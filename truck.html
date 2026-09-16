@@ -217,9 +217,12 @@ const THEME_KEY='truckLabTheme';
    cubby at the tailgate end of each. */
 const TRUCK={name:'2021 Toyota Tacoma — Access Cab, 6\' bed',
   bedL:73.7, bedW:56.7, bedWells:41.5, bedD:19.1, payload:1175};
-const BOX={L:73.7, W:56.7, depth:5.5, bays:3, minCub:6, maxCub:40,
+const BOX={L:73.7, bedW:56.7, depth:5.5, bays:3, minCub:6, maxCub:40,
            x0:10, yFront:112, yRear:185.7};
-const BAYW=+(BOX.W/BOX.bays).toFixed(1);       // 18.9" per bay
+/* The box is narrower than the bed, which is what leaves the slim channel
+   down each side between the box wall and the inner bed wall. Outer width
+   and wall thickness are editable — measure yours. */
+const BOXDEF={outerW:50, wall:1.5, sideH:12};
 
 /* Reaching up the bed costs you: the tailgate end is the end you stand at. */
 const REACH_PER_FT=1.3;
@@ -229,16 +232,17 @@ const LOOSE_REACH=55;
    ax/ay are where the container is drawn on the canvas, in inches.
    The five box compartments get l and ay from the divider positions. */
 const SEED_CONTS=[
-  {id:'cubD', ab:'Drv cubby',  below:true, name:'Driver cubby',        reach:7,  w:BAYW, h:5.5,  rear:0.99, ax:10,   fromRear:true},
-  {id:'cubP', ab:'Pass cubby', below:true, name:'Passenger cubby',     reach:7,  w:BAYW, h:5.5,  rear:0.99, ax:47.8, fromRear:true},
-  {id:'boxD', ab:'Driver bay', name:'Box — driver bay',    reach:8,  w:BAYW, h:5.5,  rear:0.88, ax:10,   fromRear:true},
-  {id:'boxP', ab:'Pass bay',   name:'Box — passenger bay', reach:8,  w:BAYW, h:5.5,  rear:0.88, ax:47.8, fromRear:true},
-  {id:'boxC', ab:'Center bay', name:'Box — center bay',    reach:12, w:BAYW, h:5.5,  rear:0.88, ax:28.9, fromRear:true},
-  {id:'boxtop',ab:'Box top',   name:'Box top (strapped)', reach:9,  w:56.7, l:73.7, h:14,  rear:0.88, ax:88,  ay:15,   fromRear:true, bedY:112},
-  {id:'under',ab:'Under box',  name:'Under the box',       reach:30, w:41.5, l:73.7, h:12.5,rear:0.86, ax:88,  ay:97,  fromRear:true, bedY:112},
-  {id:'rack', ab:'Bed rack',   name:'Bed rack — overhead', reach:40, w:50,   l:73,   h:12,  rear:0.75, ax:150, ay:15,   fromRear:true, bedY:112},
-  {id:'cabF', ab:'Pass floor', name:'Cab — passenger floor',reach:19,w:20,   l:25,   h:18,  rear:0.30, ax:44,  ay:58,  fromRear:false},
-  {id:'cabJ', ab:'Jump seats', name:'Cab — jump seats',    reach:30, w:50,   l:20,   h:22,  rear:0.38, ax:12,  ay:86,  fromRear:false}
+  {id:'cubD', ab:'Drv cubby',  below:true, name:'Driver cubby',        reach:7,  h:5.5,  rear:0.99, fromRear:true},
+  {id:'cubP', ab:'Pass cubby', below:true, name:'Passenger cubby',     reach:7,  h:5.5,  rear:0.99, fromRear:true},
+  {id:'boxD', ab:'Driver bay', name:'Box — driver bay',    reach:8,  h:5.5,  rear:0.88, fromRear:true},
+  {id:'boxP', ab:'Pass bay',   name:'Box — passenger bay', reach:8,  h:5.5,  rear:0.88, fromRear:true},
+  {id:'boxC', ab:'Center bay', name:'Box — center bay',    reach:12, h:5.5,  rear:0.88, fromRear:true},
+  {id:'sideD',ab:'Drv channel',name:'Side channel — driver',   reach:10, h:12, rear:0.88, fromRear:true, turn:true},
+  {id:'sideP',ab:'Pass channel',name:'Side channel — passenger',reach:10, h:12, rear:0.88, fromRear:true, turn:true},
+  {id:'boxtop',ab:'Box top',   name:'Box top (strapped)', reach:9,  w:56.7, l:73.7, h:16,  rear:0.88, ax:88,  ay:15, fromRear:true, bedY:112},
+  {id:'under',ab:'Under box',  name:'Under the box',      reach:30, w:41.5, l:73.7, h:12.5,rear:0.86, ax:150, ay:15, fromRear:true, bedY:112},
+  {id:'cabF', ab:'Pass floor', name:'Cab — passenger floor',reach:19,w:20,   l:25,   h:18,  rear:0.30, ax:44,  ay:58, fromRear:false},
+  {id:'cabJ', ab:'Jump seats', name:'Cab — jump seats',    reach:30, w:50,   l:20,   h:22,  rear:0.38, ax:12,  ay:86, fromRear:false}
 ];
 
 /* Tools as real boxes: l × w × h in inches. l is the long dimension. */
@@ -271,7 +275,7 @@ const SEED_TOOLS=[
 
 const CAT_COLOR={working:'#7fb3e0', instrument:'#a8cf8a', truck:'#e8b877', stock:'#d79a9a'};
 
-let DB={conts:[],tools:[],pack:{},box:{dL:14,dP:14}};
+let DB={conts:[],tools:[],pack:{},box:{dL:14,dP:14,...BOXDEF}};
 let tab='pack', drag=null, selCont=null;
 
 const uid=()=>Math.random().toString(36).slice(2,8);
@@ -288,14 +292,14 @@ function load(){
   try{const raw=localStorage.getItem(DB_KEY);if(raw){const d=JSON.parse(raw);if(d&&d.tools)DB=d;}}catch(e){}
   if(!DB.conts?.length)DB.conts=structuredClone(SEED_CONTS);
   if(!DB.tools?.length)DB.tools=structuredClone(SEED_TOOLS);
-  DB.box||={dL:14,dP:14};
+  DB.box={dL:14,dP:14,...BOXDEF,...(DB.box||{})};
   DB.pack||={};
   syncBox();
   if(!Object.keys(DB.pack).length)autoPack(true);
 }
 function resetAll(){
   if(!confirm('Throw away your edits and start from the seeded truck?'))return;
-  DB={conts:structuredClone(SEED_CONTS),tools:structuredClone(SEED_TOOLS),pack:{},box:{dL:14,dP:14}};
+  DB={conts:structuredClone(SEED_CONTS),tools:structuredClone(SEED_TOOLS),pack:{},box:{dL:14,dP:14,...BOXDEF}};
   syncBox();autoPack(true);save();render();
 }
 function emptyAll(){DB.pack={};save();render();}
@@ -303,15 +307,30 @@ function emptyAll(){DB.pack={};save();render();}
 /* The box compartments are entirely derived from the two dividers. The
    cubbies sit at the tailgate end; the bays take what is left. */
 function syncBox(){
-  const set=(bayId,cubId,d)=>{
+  const B=DB.box, wall=B.wall??BOXDEF.wall, outerW=B.outerW??BOXDEF.outerW;
+  // three bays, two internal dividers, two outer walls
+  const bayW=+((outerW-4*wall)/BOX.bays).toFixed(2);
+  const gap=+((BOX.bedW-outerW)/2).toFixed(2);       // the slim side channel
+  const boxLeft=BOX.x0+gap;
+  const bayX=i=>+(boxLeft+wall+i*(bayW+wall)).toFixed(2);
+
+  const set=(bayId,cubId,d,i)=>{
     const bay=cont(bayId), cub=cont(cubId);
     if(!bay||!cub)return;
+    bay.w=cub.w=bayW; bay.ax=cub.ax=bayX(i);
     cub.l=d;       cub.ay=BOX.yRear-d;  cub.bedY=cub.ay;
-    bay.l=BOX.L-d; bay.ay=BOX.yFront;    bay.bedY=bay.ay;
+    bay.l=BOX.L-d; bay.ay=BOX.yFront;   bay.bedY=bay.ay;
   };
-  set('boxD','cubD',DB.box.dL);
-  set('boxP','cubP',DB.box.dP);
-  const c=cont('boxC'); if(c){c.l=BOX.L;c.ay=BOX.yFront;c.bedY=BOX.yFront;}
+  set('boxD','cubD',B.dL,0);
+  set('boxP','cubP',B.dP,2);
+  const c=cont('boxC');
+  if(c){c.w=bayW;c.ax=bayX(1);c.l=BOX.L;c.ay=BOX.yFront;c.bedY=BOX.yFront;}
+  for(const [id,x] of [['sideD',BOX.x0],['sideP',boxLeft+outerW]]){
+    const ch=cont(id);
+    if(!ch)continue;
+    ch.w=Math.max(0.5,gap); ch.l=BOX.L; ch.h=B.sideH??BOXDEF.sideH;
+    ch.ax=+x.toFixed(2); ch.ay=BOX.yFront; ch.bedY=BOX.yFront;
+  }
 }
 
 /* ── geometry ─────────────────────────────────────────────────────
@@ -437,9 +456,15 @@ function packView(S){
     const hot=selCont===c.id;
     return `<g>
       <rect class="cont-rect${hot?' hot':''}" data-cont="${c.id}"
-            x="${c.ax}" y="${c.ay}" width="${c.w}" height="${c.l}" rx="1"></rect>
-      <text class="cont-lbl" x="${c.ax+1}" y="${c.below?c.ay+c.l+3.4:c.ay-3}">${esc(c.ab||c.name)}</text>
-      <text class="cont-dim" x="${c.ax+1}" y="${c.below?c.ay+c.l+6:c.ay-0.6}">${c.l.toFixed(0)}×${c.w.toFixed(0)}×${c.h}" ${c.reach}s</text>
+            x="${c.ax}" y="${c.ay}" width="${c.w}" height="${c.l}" rx="1">
+        <title>${esc(c.name)} — ${c.l.toFixed(0)}" long × ${c.w.toFixed(1)}" wide × ${c.h}" deep, ${c.reach}s to reach</title>
+      </rect>
+      ${c.turn
+        ? /* too narrow to label across — run it down the channel */
+          `<text class="cont-lbl" transform="translate(${c.ax+c.w/2+1},${c.ay+c.l-3}) rotate(-90)">${esc(c.ab||c.name)}</text>
+           <text class="cont-dim" transform="translate(${c.ax+c.w/2-1.4},${c.ay+c.l-3}) rotate(-90)">${c.l.toFixed(0)}×${c.w.toFixed(1)}×${c.h}" ${c.reach}s</text>`
+        : `<text class="cont-lbl" x="${c.ax+1}" y="${c.below?c.ay+c.l+3.4:c.ay-3}">${esc(c.ab||c.name)}</text>
+           <text class="cont-dim" x="${c.ax+1}" y="${c.below?c.ay+c.l+6:c.ay-0.6}">${c.l.toFixed(0)}×${c.w.toFixed(1)}×${c.h}" ${c.reach}s</text>`}
     </g>`;
   }).join('');
 
@@ -450,7 +475,9 @@ function packView(S){
     const fits=Math.floor((f.fw-1.6)/1.35);          // ~1.35 units per character
     const label=fits>=4?(t.name.length>fits?t.name.slice(0,fits-1)+'…':t.name):'';
     const big=f.fl>=4&&label;
+    const p2=DB.pack[t.id];
     return `<g class="item" data-tool="${t.id}">
+      <title>${esc(t.name)} — ${t.l}×${t.w}×${t.h}", ${t.lbs} lb, ${t.trips}×/day${p2.rot?' · turned':''}</title>
       <rect x="${c.ax+p.x}" y="${c.ay+p.y}" width="${f.fw}" height="${f.fl}" rx="0.7"
             fill="${CAT_COLOR[t.cat]||'#bbb'}"></rect>
       ${big?`<text x="${c.ax+p.x+0.8}" y="${c.ay+p.y+3}">${esc(label)}</text>`:''}
@@ -473,8 +500,8 @@ function packView(S){
         <text class="truck-note" x="5" y="50">hood</text>
         <text class="truck-note" x="5" y="108">cab</text>
         <text class="truck-note" x="5" y="201">tailgate — the end you stand at</text>
-        <text class="grp" x="88" y="6">on top / under the box</text>
-        <text class="grp" x="150" y="6">overhead</text>
+        <text class="grp" x="88" y="6">on top of the box</text>
+        <text class="grp" x="150" y="6">under the box</text>
         ${conts}
         ${items}
         ${dividers()}
@@ -524,7 +551,7 @@ function wirePack(){
       const f=fp(t,0);
       let x=Math.round((loc.x-c.ax-f.fw/2)*2)/2, y=Math.round((loc.y-c.ay-f.fl/2)*2)/2;
       const spot=findSpot(t,c,x,y);
-      if(!spot)return toast(`${t.name} does not fit there`);
+      if(!spot)return toast(whyNoFit(t,c));
       DB.pack[t.id]=spot;pending=null;save();render();
     });
   }
@@ -560,7 +587,7 @@ function wirePack(){
         if(!target){delete DB.pack[id];save();render();toast(`${t.name} is loose again`);return;}
         let x=Math.round((loc.x-grabX-target.ax)*2)/2, y=Math.round((loc.y-grabY-target.ay)*2)/2;
         const spot=findSpot(t,target,x,y,p.rot);
-        if(spot)DB.pack[id]=spot; else toast(`${t.name} does not fit in ${target.name}`);
+        if(spot)DB.pack[id]=spot; else toast(whyNoFit(t,target));
         save();render();
       };
       g.addEventListener('pointermove',move);
@@ -568,6 +595,16 @@ function wirePack(){
     });
   }
   wireDividers(svg,toLocal);
+}
+
+/* "It does not fit" is useless on its own — the box is 5.5" deep and most
+   of what a crew grabs is taller than that, so say which dimension lost. */
+function whyNoFit(t,c){
+  if(t.h>c.h)return `${t.name} is ${t.h}" tall — ${c.name} is only ${c.h}" deep`;
+  const short=Math.min(t.l,t.w), long=Math.max(t.l,t.w);
+  if(short>c.w&&short>c.l)return `${t.name} is ${short}" at its narrowest — ${c.name} is ${c.w.toFixed(0)}×${c.l.toFixed(0)}"`;
+  if(long>c.l&&long>c.w)return `${t.name} is ${long}" long — ${c.name} is ${c.l.toFixed(0)}×${c.w.toFixed(0)}"`;
+  return `no clear floor left in ${c.name} — move something out first`;
 }
 
 /* Try where they dropped it, then spiral out a little, then give up. */
@@ -683,11 +720,22 @@ function contsView(S){
       <div class="panel-body"><div class="hint">
         Bed ${TRUCK.bedL}" × ${TRUCK.bedW}", ${TRUCK.bedWells}" between the wheel wells, ${TRUCK.bedD}" deep.
         Payload about ${TRUCK.payload} lb including people.<br><br>
-        <b>The box</b> spans the whole bed — ${BOX.L}" × ${BOX.W}", 2x6 frame so ${BOX.depth}" inside,
-        three ${BAYW}" compartments across the width. One divider in the driver bay and one in the
-        passenger bay makes a cubby at the tailgate end of each; drag them on the packing canvas.
-        Everything the box covers is only reachable by lifting a lid, and the bed floor underneath
-        becomes the hardest place in the truck to get at.
+        <b>The box</b> runs the whole length of the bed and is narrower than it, which is what leaves
+        the slim channel down each side.
+      </div>
+      <div class="cols" style="margin-top:10px">
+        <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted)">Box outer width in</label>
+          <input class="num" style="max-width:90px" value="${DB.box.outerW}" onchange="editBox('outerW',this.value)"></div>
+        <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted)">Wall / divider in</label>
+          <input class="num" style="max-width:90px" value="${DB.box.wall}" onchange="editBox('wall',this.value)"></div>
+        <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted)">Side channel depth in</label>
+          <input class="num" style="max-width:90px" value="${DB.box.sideH}" onchange="editBox('sideH',this.value)"></div>
+      </div>
+      <div class="hint" style="margin-top:8px">
+        At ${DB.box.outerW}" outside with ${DB.box.wall}" stock, each bay comes out
+        ${cont('boxD')?cont('boxD').w.toFixed(1):'—'}" wide and each side channel
+        ${cont('sideD')?cont('sideD').w.toFixed(1):'—'}". The frame is 2x6, so ${BOX.depth}" is the
+        inside depth — that one number rules more things out of the box than anything else.
       </div></div></div>
     <div class="panel"><div class="panel-head"><h3>Compartments</h3>
       <span class="n">reach seconds is the one number worth timing</span></div>
@@ -699,6 +747,18 @@ function contsView(S){
         A long bay costs more at the far end — ${REACH_PER_FT}s per foot up the bed — which is why the
         auto-pack fills from the tailgate forward.
       </div></div></div>`;
+}
+function editBox(k,v){
+  DB.box[k]=Math.max(0.5,num(v,1));
+  syncBox();
+  // re-seat anything the new geometry pushed out
+  for(const t of DB.tools){
+    const p=DB.pack[t.id];if(!p)continue;
+    const c=cont(p.c);
+    const spot=c&&findSpot(t,c,p.x,p.y,p.rot);
+    if(spot)DB.pack[t.id]=spot; else delete DB.pack[t.id];
+  }
+  save();setTimeout(render,0);
 }
 function editCont(id,k,v){
   const c=cont(id);if(!c)return;

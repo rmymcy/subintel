@@ -188,23 +188,27 @@ const THEME_KEY='truckLabTheme';
    All plan coordinates below are inches. */
 const TRUCK={name:'2021 Toyota Tacoma — Access Cab, 6\' bed',
   bedL:73.7, bedW:56.7, bedWells:41.5, bedD:19.1, bedCuFt:49.4, payload:1175,
-  box:'Wooden box on the wheel wells — 2x6 frame, three bays across the width, '
-     +'two dividers at the rear making cubbies. Bays run front-to-back, so the '
-     +'longest thing that fits flat in one is about 36" — a 48" lath does not. '
-     +'The box also buries the space under it: that is real volume, but you have '
-     +'to reach past the box to use it.'};
+  box:'Wooden box on the wheel wells — 2x6 frame, about 5.5" deep inside. Three '
+     +'bays across the width, plus one divider in the driver bay and one in the '
+     +'passenger bay making a cubby at the back of each. Five compartments total; '
+     +'the center bay runs the full depth. The bays run front-to-back, so the side '
+     +'bays take about 20" and the center about 30" — no compartment holds a 48" '
+     +'lath, which is why lath rides on top or on a rack. The box also buries the '
+     +'space under it: around 9 cu ft of real volume that you have to reach past '
+     +'the box to use.'};
 
 const SEED_ZONES=[
-  {id:'tail',  name:'Bed floor — behind the box', ab:'Behind box', reach:6, vol:8.6, lbs:200,rear:1.02,slots:4, long:true,  x:10,  y:176, w:56.7,h:9.7},
-  {id:'cubby', name:'Box — rear cubbies',         ab:'Cubbies',    reach:7, vol:0.8, lbs:30, rear:0.95,slots:4, long:false, x:10,  y:168, w:56.7,h:7},
-  {id:'boxD',  name:'Box — driver bay',           ab:'Driver bay', reach:8, vol:2.0, lbs:70, rear:0.90,slots:6, long:false, x:10,  y:137, w:18.9,h:30},
-  {id:'boxP',  name:'Box — passenger bay',        ab:'Pass bay',   reach:8, vol:2.0, lbs:70, rear:0.90,slots:6, long:false, x:47.8,y:137, w:18.9,h:30},
+  {id:'tail',  name:'Bed floor — behind the box', ab:'Behind box', reach:6, vol:11.7,lbs:250,rear:1.02,slots:4, long:true,  x:10,  y:168, w:56.7,h:17.7},
+  {id:'cubD',  name:'Driver cubby (rear)',        ab:'Drv cubby',  reach:7, vol:0.6, lbs:25, rear:0.95,slots:4, long:false, x:10,  y:157, w:18.9,h:10},
+  {id:'cubP',  name:'Passenger cubby (rear)',     ab:'Pass cubby', reach:7, vol:0.6, lbs:25, rear:0.95,slots:4, long:false, x:47.8,y:157, w:18.9,h:10},
+  {id:'boxD',  name:'Box — driver bay',           ab:'Driver bay', reach:8, vol:1.2, lbs:50, rear:0.90,slots:5, long:false, x:10,  y:137, w:18.9,h:20},
+  {id:'boxP',  name:'Box — passenger bay',        ab:'Pass bay',   reach:8, vol:1.2, lbs:50, rear:0.90,slots:5, long:false, x:47.8,y:137, w:18.9,h:20},
   {id:'boxtop',name:'Box top (strapped)',         ab:'Box top',    reach:9, vol:4,   lbs:100,rear:0.90,slots:3, long:true,  x:10,  y:130, w:56.7,h:6},
-  {id:'boxC',  name:'Box — center bay',           ab:'Center bay', reach:12,vol:2.0, lbs:70, rear:0.90,slots:6, long:false, x:28.9,y:137, w:18.9,h:30},
+  {id:'boxC',  name:'Box — center bay',           ab:'Center bay', reach:12,vol:1.8, lbs:70, rear:0.90,slots:6, long:false, x:28.9,y:137, w:18.9,h:30},
   {id:'cabF',  name:'Cab — passenger floor',      ab:'Pass floor', reach:19,vol:4,   lbs:60, rear:0.30,slots:4, long:false, x:42,  y:62,  w:25,  h:20},
   {id:'bedF',  name:'Bed floor — headboard',      ab:'Headboard',  reach:26,vol:15,  lbs:300,rear:0.74,slots:4, long:true,  x:10,  y:113, w:56.7,h:16},
   {id:'cabJ',  name:'Cab — jump seats',           ab:'Jump seats', reach:30,vol:4,   lbs:80, rear:0.38,slots:4, long:true,  x:10,  y:86,  w:57,  h:20},
-  {id:'under', name:'Under the box (between wells)',ab:'Under box',reach:30,vol:10.8,lbs:250,rear:0.88,slots:2, long:true,  x:39.7,y:3,   w:27,  h:14},
+  {id:'under', name:'Under the box (between wells)',ab:'Under box',reach:30,vol:9,   lbs:250,rear:0.88,slots:2, long:true,  x:39.7,y:3,   w:27,  h:14},
   {id:'rack',  name:'Bed rack — overhead',        ab:'Bed rack',   reach:40,vol:10,  lbs:150,rear:0.75,slots:4, long:true,  x:10,  y:3,   w:27,  h:14}
 ];
 
@@ -256,11 +260,12 @@ const SEED_TOOLS=[
    into the before/after number. */
 const SEED_PLACE={
   lathbag:'tail', gps:'tail', water:'tail',
-  hammer:'boxD', pinflag:'boxD', tacks:'boxD', marker:'boxD',
-  flagging:'boxP', tape25:'boxP', tape100:'boxP', rebar:'boxP',
-  laser:'boxC', batt:'boxC',
+  hammer:'cubD', marker:'cubD', machete:'cubD',
+  tape25:'cubP', batt:'cubP',
+  pinflag:'boxD', tacks:'boxD',
+  flagging:'boxP', tape100:'boxP',
+  laser:'boxC', rebar:'boxC',
   gradestk:'boxtop', lathbulk:'boxtop',
-  machete:'cubby',
   dc:'cabF', plans:'cabF', vest:'cabJ',
   cones:'bedF', shovel:'bedF', flagbulk:'bedF',
   hubbulk:'under', suppbulk:'under'

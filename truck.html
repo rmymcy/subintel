@@ -153,6 +153,7 @@ svg.pack{width:100%;height:auto;max-height:82vh;display:block;touch-action:none}
 .grp{font-size:3px;font-weight:700;fill:var(--faint);font-family:var(--font);pointer-events:none;
      text-transform:uppercase;letter-spacing:.1em}
 .item{cursor:grab}
+.item.off{opacity:.2;pointer-events:none}
 .item.drag{cursor:grabbing}
 .item rect{stroke-width:.4;stroke:rgba(0,0,0,.35)}
 .item text{font-size:2.4px;font-weight:700;fill:#10233a;font-family:var(--font);pointer-events:none}
@@ -222,10 +223,14 @@ const BOX={L:73.7, bedW:56.7, depth:5.5, bays:3, minCub:6, maxCub:40,
 /* The box is narrower than the bed, which is what leaves the slim channel
    down each side between the box wall and the inner bed wall. Outer width
    and wall thickness are editable — measure yours. */
-const BOXDEF={outerW:50, wall:1.5, sideH:12};
+const BOXDEF={outerW:50, wall:1.5, sideH:19.1};
 
-/* Reaching up the bed costs you: the tailgate end is the end you stand at. */
-const REACH_PER_FT=1.3;
+/* Reaching up the bed costs you: the tailgate end is the end you stand at.
+   Under a camper shell it costs more, because you are leaning in through
+   the back door instead of walking down the side of an open bed. */
+const REACH_OPEN=1.3, REACH_CAMPER=2.4;
+const CAMPERDEF={on:true, h:36};
+const reachPerFt=()=>DB.camper?.on?REACH_CAMPER:REACH_OPEN;
 const LOOSE_REACH=55;
 
 /* Containers. l runs front-to-back along the truck, w across it, h up.
@@ -237,8 +242,8 @@ const SEED_CONTS=[
   {id:'boxD', ab:'Driver bay', name:'Box — driver bay',    reach:8,  h:5.5,  rear:0.88, fromRear:true},
   {id:'boxP', ab:'Pass bay',   name:'Box — passenger bay', reach:8,  h:5.5,  rear:0.88, fromRear:true},
   {id:'boxC', ab:'Center bay', name:'Box — center bay',    reach:12, h:5.5,  rear:0.88, fromRear:true},
-  {id:'sideD',ab:'Drv channel',name:'Side channel — driver',   reach:10, h:12, rear:0.88, fromRear:true, turn:true},
-  {id:'sideP',ab:'Pass channel',name:'Side channel — passenger',reach:10, h:12, rear:0.88, fromRear:true, turn:true},
+  {id:'sideD',ab:'Drv channel',name:'Side channel — driver',   reach:18, h:19.1, rear:0.88, fromRear:true, turn:true},
+  {id:'sideP',ab:'Pass channel',name:'Side channel — passenger',reach:18, h:19.1, rear:0.88, fromRear:true, turn:true},
   {id:'boxtop',ab:'Box top',   name:'Box top (strapped)', reach:9,  w:56.7, l:73.7, h:16,  rear:0.88, ax:88,  ay:15, fromRear:true, bedY:112},
   {id:'under',ab:'Under box',  name:'Under the box',      reach:30, w:41.5, l:73.7, h:12.5,rear:0.86, ax:150, ay:15, fromRear:true, bedY:112},
   {id:'cabF', ab:'Pass floor', name:'Cab — passenger floor',reach:19,w:20,   l:25,   h:18,  rear:0.30, ax:44,  ay:58, fromRear:false},
@@ -275,8 +280,8 @@ const SEED_TOOLS=[
 
 const CAT_COLOR={working:'#7fb3e0', instrument:'#a8cf8a', truck:'#e8b877', stock:'#d79a9a'};
 
-let DB={conts:[],tools:[],pack:{},box:{dL:14,dP:14,...BOXDEF}};
-let tab='pack', drag=null, selCont=null;
+let DB={conts:[],tools:[],pack:{},box:{dL:14,dP:14,...BOXDEF},camper:{...CAMPERDEF}};
+let tab='pack', drag=null, selCont=null, lvl=0;
 
 const uid=()=>Math.random().toString(36).slice(2,8);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -293,13 +298,15 @@ function load(){
   if(!DB.conts?.length)DB.conts=structuredClone(SEED_CONTS);
   if(!DB.tools?.length)DB.tools=structuredClone(SEED_TOOLS);
   DB.box={dL:14,dP:14,...BOXDEF,...(DB.box||{})};
+  DB.camper={...CAMPERDEF,...(DB.camper||{})};
   DB.pack||={};
   syncBox();
   if(!Object.keys(DB.pack).length)autoPack(true);
 }
 function resetAll(){
   if(!confirm('Throw away your edits and start from the seeded truck?'))return;
-  DB={conts:structuredClone(SEED_CONTS),tools:structuredClone(SEED_TOOLS),pack:{},box:{dL:14,dP:14,...BOXDEF}};
+  DB={conts:structuredClone(SEED_CONTS),tools:structuredClone(SEED_TOOLS),pack:{},
+      box:{dL:14,dP:14,...BOXDEF},camper:{...CAMPERDEF}};
   syncBox();autoPack(true);save();render();
 }
 function emptyAll(){DB.pack={};save();render();}
@@ -331,19 +338,40 @@ function syncBox(){
     ch.w=Math.max(0.5,gap); ch.l=BOX.L; ch.h=B.sideH??BOXDEF.sideH;
     ch.ax=+x.toFixed(2); ch.ay=BOX.yFront; ch.bedY=BOX.yFront;
   }
+  /* A camper makes the space over the box a compartment in its own right,
+     and shuts the sides: you stop reaching over the rail and start
+     reaching in through the back door, which is slower for everything. */
+  const cam=DB.camper||CAMPERDEF;
+  const top=cont('boxtop');
+  if(top){top.h=cam.on?cam.h:16; top.name=cam.on?'Over the box (under the camper)':'Box top (strapped)';
+          top.ab=cam.on?'Over the box':'Box top';}
+  for(const id of ['sideD','sideP']){const c2=cont(id);if(c2)c2.reach=cam.on?18:10;}
+  for(const id of ['boxD','boxP','boxC']){const c2=cont(id);if(c2)c2.reach=(id==='boxC'?12:8)+(cam.on?2:0);}
+  for(const id of ['cubD','cubP']){const c2=cont(id);if(c2)c2.reach=cam.on?8:7;}
 }
 
 /* ── geometry ─────────────────────────────────────────────────────
    A tool's long dimension runs along the truck unless it is rotated.  */
 const fp=(t,rot)=>rot?{fw:t.l,fl:t.w}:{fw:t.w,fl:t.l};
-const packed=cid=>DB.tools.filter(t=>DB.pack[t.id]?.c===cid);
+/* Under a camper there is headroom, so things stack. One shelf: level 0 on
+   the floor of the compartment, level 1 on top of what is already there.
+   Whether it actually balances is your problem, not the model's. */
+const packed=(cid,l)=>DB.tools.filter(t=>{
+  const p=DB.pack[t.id];
+  return p?.c===cid&&(l===undefined||(p.lvl||0)===l);
+});
+const baseH=c=>packed(c.id,0).reduce((m,t)=>Math.max(m,t.h),0);
+const LIFT_OFF=5;                       // seconds to move what is on top
 const bedYOf=c=>c.bedY??BOX.yFront;
 
-function fitsAt(t,c,x,y,rot,ignoreId){
-  if(t.h>c.h+1e-6)return false;                       // lid will not close
+function fitsAt(t,c,x,y,rot,ignoreId,atLvl){
+  const L=atLvl??0;
+  const floor=L===1?baseH(c):0;
+  if(L===1&&floor<=0)return false;                    // nothing to stack on
+  if(floor+t.h>c.h+1e-6)return false;                 // lid will not close
   const {fw,fl}=fp(t,rot);
   if(x<-1e-6||y<-1e-6||x+fw>c.w+1e-6||y+fl>c.l+1e-6)return false;
-  for(const o of packed(c.id)){
+  for(const o of packed(c.id,L)){
     if(o.id===t.id||o.id===ignoreId)continue;
     const p=DB.pack[o.id], of=fp(o,p.rot);
     if(x<p.x+of.fw-1e-6 && x+fw>p.x+1e-6 && y<p.y+of.fl-1e-6 && y+fl>p.y+1e-6)return false;
@@ -357,9 +385,14 @@ function reachFor(t){
   if(!p)return LOOSE_REACH;
   const c=cont(p.c);
   if(!c)return LOOSE_REACH;
-  if(!c.fromRear)return c.reach;
+  /* If something is stacked above, you sometimes have to move it — but only
+     when it is actually on top of the thing you want, so charge it by how
+     much of the floor the upper shelf covers rather than all-or-nothing. */
+  const covered=packed(c.id,1).reduce((a,o)=>{const f=fp(o,DB.pack[o.id].rot);return a+f.fw*f.fl;},0);
+  const stacked=(p.lvl||0)===1?0:LIFT_OFF*Math.min(1,covered/(c.w*c.l));
+  if(!c.fromRear)return c.reach+stacked;
   const rearEdge=bedYOf(c)+p.y+fp(t,p.rot).fl;
-  return c.reach+Math.max(0,(BOX.yRear-rearEdge))/12*REACH_PER_FT;
+  return c.reach+stacked+Math.max(0,(BOX.yRear-rearEdge))/12*reachPerFt();
 }
 function score(){
   let sec=0,loose=0,lbs=0,rear=0,behind=0,used=0,cap=0;
@@ -388,17 +421,22 @@ function autoPack(quiet){
   DB.pack={};
   const tools=DB.tools.slice().sort((a,b)=>b.trips-a.trips);
   const conts=DB.conts.slice().sort((a,b)=>a.reach-b.reach);
+  /* Every compartment-and-shelf is a candidate, ranked by what it costs to
+     reach. Trying every floor before any shelf is how 120 lb of hubs ends
+     up in the cab instead of stacked over the box, so don't. */
+  const slots=[];
+  for(const c of conts)for(const L of [0,1])slots.push({c,L,cost:c.reach+(L?LIFT_OFF:0)});
+  slots.sort((a,b)=>a.cost-b.cost);
   for(const t of tools){
     let done=false;
-    for(const c of conts){
-      if(t.h>c.h)continue;
+    for(const {c,L} of slots){
       for(const rot of [0,1]){
         const {fw,fl}=fp(t,rot);
         if(fw>c.w||fl>c.l)continue;
         // scan from the tailgate end forward — that is the cheap end
         for(let y=Math.floor(c.l-fl);y>=0&&!done;y--)
           for(let x=0;x<=c.w-fw;x++){
-            if(fitsAt(t,c,x,y,rot)){DB.pack[t.id]={c:c.id,x,y,rot};done=true;break;}
+            if(fitsAt(t,c,x,y,rot,null,L)){DB.pack[t.id]={c:c.id,x,y,rot,lvl:L};done=true;break;}
           }
         if(done)break;
       }
@@ -457,7 +495,7 @@ function packView(S){
     return `<g>
       <rect class="cont-rect${hot?' hot':''}" data-cont="${c.id}"
             x="${c.ax}" y="${c.ay}" width="${c.w}" height="${c.l}" rx="1">
-        <title>${esc(c.name)} — ${c.l.toFixed(0)}" long × ${c.w.toFixed(1)}" wide × ${c.h}" deep, ${c.reach}s to reach</title>
+        <title>${esc(c.name)} — ${c.l.toFixed(0)}" long × ${c.w.toFixed(1)}" wide × ${c.h}" tall, ${c.reach}s to reach · floor ${packed(c.id,0).length}, stacked ${packed(c.id,1).length}</title>
       </rect>
       ${c.turn
         ? /* too narrow to label across — run it down the channel */
@@ -468,16 +506,17 @@ function packView(S){
     </g>`;
   }).join('');
 
-  const items=DB.tools.filter(t=>DB.pack[t.id]).map(t=>{
+  const items=DB.tools.filter(t=>DB.pack[t.id]).sort((a,b)=>(DB.pack[a.id].lvl||0)-(DB.pack[b.id].lvl||0)).map(t=>{
     const p=DB.pack[t.id], c=cont(p.c);
     if(!c)return '';
+    const on=(p.lvl||0)===lvl;
     const f=fp(t,p.rot);
     const fits=Math.floor((f.fw-1.6)/1.35);          // ~1.35 units per character
     const label=fits>=4?(t.name.length>fits?t.name.slice(0,fits-1)+'…':t.name):'';
     const big=f.fl>=4&&label;
-    const p2=DB.pack[t.id];
-    return `<g class="item" data-tool="${t.id}">
-      <title>${esc(t.name)} — ${t.l}×${t.w}×${t.h}", ${t.lbs} lb, ${t.trips}×/day${p2.rot?' · turned':''}</title>
+    const p2=p;
+    return `<g class="item${on?'':' off'}" data-tool="${t.id}" data-on="${on?1:0}">
+      <title>${esc(t.name)} — ${t.l}×${t.w}×${t.h}", ${t.lbs} lb, ${t.trips}×/day${p2.rot?' · turned':''}${(p2.lvl||0)?' · stacked':''}</title>
       <rect x="${c.ax+p.x}" y="${c.ay+p.y}" width="${f.fw}" height="${f.fl}" rx="0.7"
             fill="${CAT_COLOR[t.cat]||'#bbb'}"></rect>
       ${big?`<text x="${c.ax+p.x+0.8}" y="${c.ay+p.y+3}">${esc(label)}</text>`:''}
@@ -491,7 +530,15 @@ function packView(S){
       ${esc(t.name)} <span class="d">${t.l}×${t.w}×${t.h}"</span></span>`).join('')
     : `<span class="hint">Everything has a home.</span>`;
 
-  return `<div class="packwrap">
+  const lvlBar=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:9px;flex-wrap:wrap">
+      <span class="hint" style="font-weight:700">Shelf</span>
+      <button class="btn btn-sm${lvl===0?' btn-primary':''}" onclick="setLvl(0)">on the floor</button>
+      <button class="btn btn-sm${lvl===1?' btn-primary':''}" onclick="setLvl(1)">stacked on top</button>
+      <span class="hint">${lvl===0?'the layer sitting on the bottom of each compartment'
+        :'a second layer resting on the first — only where something is already down'}
+        · the other layer is faded and cannot be grabbed</span>
+    </div>`;
+  return `${lvlBar}<div class="packwrap">
       <svg class="pack" viewBox="-4 0 212 205">
         <rect x="4" y="30" width="74.4" height="166" rx="8" fill="none" stroke="var(--border)" stroke-width="1"></rect>
         <line x1="4" y1="52" x2="78.4" y2="52" stroke="var(--border)" stroke-width=".6"></line>
@@ -533,6 +580,7 @@ function dividers(){
   }).join('');
 }
 function pickPending(id){pending=pending===id?null:id;render();}
+function setLvl(n){lvl=n;render();}
 
 function wirePack(){
   const svg=document.querySelector('svg.pack');
@@ -550,8 +598,8 @@ function wirePack(){
       const loc=toLocal(e), c=cont(r.dataset.cont), t=tool(pending);
       const f=fp(t,0);
       let x=Math.round((loc.x-c.ax-f.fw/2)*2)/2, y=Math.round((loc.y-c.ay-f.fl/2)*2)/2;
-      const spot=findSpot(t,c,x,y);
-      if(!spot)return toast(whyNoFit(t,c));
+      const spot=findSpot(t,c,x,y,0,false,lvl);
+      if(!spot)return toast(whyNoFit(t,c,lvl));
       DB.pack[t.id]=spot;pending=null;save();render();
     });
   }
@@ -578,7 +626,7 @@ function wirePack(){
         g.removeEventListener('pointerup',up);
         g.classList.remove('drag');
         if(!moved){                                  // a tap is a rotate
-          const spot=findSpot(t,c,p.x,p.y,1-p.rot,true);
+          const spot=findSpot(t,c,p.x,p.y,1-p.rot,true,p.lvl||0);
           if(spot)DB.pack[id]=spot; else toast('no room to turn it');
           save();render();return;
         }
@@ -586,8 +634,8 @@ function wirePack(){
         const target=contAt(loc.x,loc.y);
         if(!target){delete DB.pack[id];save();render();toast(`${t.name} is loose again`);return;}
         let x=Math.round((loc.x-grabX-target.ax)*2)/2, y=Math.round((loc.y-grabY-target.ay)*2)/2;
-        const spot=findSpot(t,target,x,y,p.rot);
-        if(spot)DB.pack[id]=spot; else toast(whyNoFit(t,target));
+        const spot=findSpot(t,target,x,y,p.rot,false,lvl);
+        if(spot)DB.pack[id]=spot; else toast(whyNoFit(t,target,lvl));
         save();render();
       };
       g.addEventListener('pointermove',move);
@@ -599,8 +647,10 @@ function wirePack(){
 
 /* "It does not fit" is useless on its own — the box is 5.5" deep and most
    of what a crew grabs is taller than that, so say which dimension lost. */
-function whyNoFit(t,c){
-  if(t.h>c.h)return `${t.name} is ${t.h}" tall — ${c.name} is only ${c.h}" deep`;
+function whyNoFit(t,c,atLvl){
+  const floor=(atLvl||0)===1?baseH(c):0;
+  if((atLvl||0)===1&&floor<=0)return `nothing on the floor of ${c.name} to stack on`;
+  if(floor+t.h>c.h)return `${t.name} is ${t.h}" tall — ${floor?`only ${(c.h-floor).toFixed(0)}" left above what is already in `:`${c.name} is only ${c.h}" deep`}${floor?c.name:''}`;
   const short=Math.min(t.l,t.w), long=Math.max(t.l,t.w);
   if(short>c.w&&short>c.l)return `${t.name} is ${short}" at its narrowest — ${c.name} is ${c.w.toFixed(0)}×${c.l.toFixed(0)}"`;
   if(long>c.l&&long>c.w)return `${t.name} is ${long}" long — ${c.name} is ${c.l.toFixed(0)}×${c.w.toFixed(0)}"`;
@@ -608,17 +658,18 @@ function whyNoFit(t,c){
 }
 
 /* Try where they dropped it, then spiral out a little, then give up. */
-function findSpot(t,c,x,y,rot=0,mustRotate){
+function findSpot(t,c,x,y,rot=0,mustRotate,atLvl){
+  const L=atLvl??0;
   const tryRot=mustRotate?[rot]:[rot,1-rot];
   for(const r of tryRot){
     const {fw,fl}=fp(t,r);
-    if(t.h>c.h||fw>c.w||fl>c.l)continue;
+    if(fw>c.w||fl>c.l)continue;
     const cx=Math.min(Math.max(0,x),c.w-fw), cy=Math.min(Math.max(0,y),c.l-fl);
-    if(fitsAt(t,c,cx,cy,r,t.id))return {c:c.id,x:cx,y:cy,rot:r};
+    if(fitsAt(t,c,cx,cy,r,t.id,L))return {c:c.id,x:cx,y:cy,rot:r,lvl:L};
     for(let d=1;d<=Math.max(c.w,c.l);d++){
       for(const [dx,dy] of [[d,0],[-d,0],[0,d],[0,-d],[d,d],[-d,-d],[d,-d],[-d,d]]){
         const nx=Math.min(Math.max(0,cx+dx),c.w-fw), ny=Math.min(Math.max(0,cy+dy),c.l-fl);
-        if(fitsAt(t,c,nx,ny,r,t.id))return {c:c.id,x:nx,y:ny,rot:r};
+        if(fitsAt(t,c,nx,ny,r,t.id,L))return {c:c.id,x:nx,y:ny,rot:r,lvl:L};
       }
     }
   }
@@ -731,6 +782,23 @@ function contsView(S){
         <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted)">Side channel depth in</label>
           <input class="num" style="max-width:90px" value="${DB.box.sideH}" onchange="editBox('sideH',this.value)"></div>
       </div>
+      <div class="cols" style="margin-top:10px">
+        <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted)">Camper shell</label>
+          <select onchange="editCamper('on',this.value)">
+            <option value="1"${DB.camper.on?' selected':''}>on the truck</option>
+            <option value="0"${DB.camper.on?'':' selected'}>open bed</option>
+          </select></div>
+        <div><label style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted)">Headroom over the box in</label>
+          <input class="num" style="max-width:90px" value="${DB.camper.h}" onchange="editCamper('h',this.value)"></div>
+      </div>
+      <div class="hint" style="margin-top:8px">
+        ${DB.camper.on?`With the shell on, the space over the box is a ${DB.camper.h}" compartment rather
+          than a strapped-down surface — and you stop reaching over the rail. Everything comes out the
+          back door, so reaching up the bed costs ${REACH_CAMPER}s a foot instead of ${REACH_OPEN}s, the
+          side channels go from 10s to 18s, and the bays cost 2s more.`
+        :`Open bed: you reach over the rail, so the sides are cheap and the box top is a strapped
+          surface with only 16" of usable height.`}
+      </div>
       <div class="hint" style="margin-top:8px">
         At ${DB.box.outerW}" outside with ${DB.box.wall}" stock, each bay comes out
         ${cont('boxD')?cont('boxD').w.toFixed(1):'—'}" wide and each side channel
@@ -744,21 +812,25 @@ function contsView(S){
         <tbody>${rows}</tbody></table></div>
       <div class="panel-body"><div class="hint">
         <b>Reach</b> = walk to it, open it, get the thing, be back at the work, standing at the tailgate.
-        A long bay costs more at the far end — ${REACH_PER_FT}s per foot up the bed — which is why the
+        A long bay costs more at the far end — ${reachPerFt()}s per foot up the bed — which is why the
         auto-pack fills from the tailgate forward.
       </div></div></div>`;
 }
-function editBox(k,v){
-  DB.box[k]=Math.max(0.5,num(v,1));
-  syncBox();
-  // re-seat anything the new geometry pushed out
+function editCamper(k,v){
+  DB.camper[k]=k==='on'?v==='1':Math.max(6,num(v,36));
+  syncBox();reseat();save();setTimeout(render,0);
+}
+function reseat(){
   for(const t of DB.tools){
     const p=DB.pack[t.id];if(!p)continue;
     const c=cont(p.c);
-    const spot=c&&findSpot(t,c,p.x,p.y,p.rot);
+    const spot=c&&findSpot(t,c,p.x,p.y,p.rot,false,p.lvl||0);
     if(spot)DB.pack[t.id]=spot; else delete DB.pack[t.id];
   }
-  save();setTimeout(render,0);
+}
+function editBox(k,v){
+  DB.box[k]=Math.max(0.5,num(v,1));
+  syncBox();reseat();save();setTimeout(render,0);
 }
 function editCont(id,k,v){
   const c=cont(id);if(!c)return;

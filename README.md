@@ -34,18 +34,6 @@ tens of megabytes on the phone. Offline you get the whole library, the
 requirements, the documents and every coordinate; the map is grey behind the
 pins. The header shows an `offline` pill so it's obvious why.
 
-## Truck Lab
-
-**https://rmymcy.github.io/subintel/truck.html** — a separate, rough model for
-deciding where tools live in the truck.
-
-Every tool has a trips-per-day, every spot in a 2021 Tacoma Access Cab has a
-retrieval cost in seconds, and the score is minutes a day spent fetching things.
-It optimizes placement, respects what physically fits (48" lath will not go in a
-rail box), separates working supply from a week of bundle stock, and prints a
-layout sheet so every truck is set up the same. Numbers are estimates — time a
-few with a stopwatch and they stop being guesses.
-
 ## The files
 
 | | |
@@ -54,7 +42,6 @@ few with a stopwatch and they stop being guesses.
 | `sw.js` | service worker; caches the app shell (~250KB once), never map tiles |
 | `manifest.webmanifest` | what makes it installable |
 | `sub_intel.html` | a redirect, so the old path keeps working |
-| `truck.html` | Truck Lab — the tool-placement model, standalone |
 
 `index.html` is still self-contained: drop it on a share drive or email it and it
 runs on its own, with Leaflet and its stylesheet inlined. Data lives in the

@@ -859,6 +859,18 @@ main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 .tag.required{background:var(--amber-wash);color:var(--amber-ink)}
 .tag.critical{background:var(--red-wash);color:var(--red)}
 .tag.src{background:var(--blue-wash);color:var(--blue)}
+.tag.cat{background:var(--bg-soft);color:var(--muted);text-transform:none;letter-spacing:0;font-weight:600}
+.tag.obs{background:var(--amber-wash);color:var(--amber-ink)}
+.tag.conf{background:var(--green-wash);color:var(--green)}
+.tag.work{background:transparent;color:var(--faint);border:1px solid var(--border-soft);text-transform:none;letter-spacing:0}
+.tag.live{background:var(--green-wash);color:var(--green)}
+.req-src{font-size:10.5px;color:var(--faint);margin-top:4px;line-height:1.4}
+.req-src a{color:var(--blue);font-weight:600;text-decoration:none}
+.req-src a:hover{text-decoration:underline}
+.scope-head{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);
+  padding:8px 13px 3px;background:var(--bg);border-bottom:1px solid var(--border-soft)}
+.verify-box{margin-top:8px;background:var(--blue-wash);border:1px solid var(--blue-soft);border-radius:var(--radius-sm);
+  padding:7px 10px;font-size:12px;color:var(--blue)}
 .req-act{display:flex;gap:4px;opacity:0;flex-shrink:0}
 .req:hover .req-act{opacity:1}
 
@@ -976,8 +988,8 @@ mark{background:var(--amber-wash);color:inherit;border-radius:2px;padding:0 1px}
 <body>
 
 <header>
-  <h1 onclick="go('#/')">Sub Intel <span class="ver">v2.2</span></h1>
-  <input id="search" type="text" placeholder="search everything — subs, gate codes, benchmarks, requirements…" autocomplete="off">
+  <h1 onclick="go('#/')">Sub Intel <span class="ver">v3.0</span></h1>
+  <input id="search" type="text" placeholder="search subs, rules, counties, builders, benchmarks…" autocomplete="off">
   <span class="spacer"></span>
   <span class="count-note" id="countNote"></span>
   <span class="pill" id="offlinePill" hidden title="the library works offline; map tiles need signal">offline</span>
@@ -1014,7 +1026,27 @@ const DB_KEY='subIntelDB';
 const DISPATCH_KEY='dispatchDB9';   // read-only neighbour: the dispatch library
 const THEME_KEY='subIntelTheme';
 
-let DB={version:3,cities:[],jurs:[],subs:[]};
+/* ══════════════════ the seeded library ══════════════════
+   Counties, municipalities, builders and 104 subdivisions, with every rule
+   we have a source for. Rules resolve broadest to narrowest:
+
+     everywhere → county → municipality → builder → subdivision
+
+   and a narrower scope wins on conflict. Each rule carries where it came
+   from and whether it is CONFIRMED (in a code, policy or permit record) or
+   OBSERVED (learned in the field, not yet sourced) — a crew needs to know
+   which, because an observed rule is one you can still argue with.
+
+   This ships inside the app, so opening the link is the whole install. That
+   works because none of it is sensitive. The moment gate codes and
+   superintendent numbers go in, this stops being safe to publish and the
+   library has to move behind a login.
+   ═══════════════════════════════════════════════════════ */
+const SEED={"v":1,"generated":"2026-09-24","global":{"reqs":[{"id":"global-ppe-base","title":"Boots and hard hat required on all sites.","cat":"ppe","conf":"confirmed","source":"Company baseline (Romey Macy)"},{"id":"fl-5j17-monument-spec","title":"Monuments set at corners must be durable, at least 18 inches long, at least 0.20 sq in cross-section, capped or marked with the surveyor license number, business LB number, or business name, and detectable with a ferrous/magnetic locator. Corners in concrete or asphalt may use alternate durable, identifiable monumentation.","cat":"monument","conf":"confirmed","appliesTo":["boundary","envelope","corner set"],"source":"Fla. Admin. Code R. 5J-17.052","sourceUrl":"https://www.law.cornell.edu/regulations/florida/Fla-Admin-Code-Ann-R-5J-17-052"},{"id":"fl-5j17-found-vs-set","title":"Every monument, found or set, must be described on the survey: size, material, cap identification, and whether it was found or set.","cat":"monument","conf":"confirmed","appliesTo":["boundary","envelope"],"source":"Fla. Admin. Code R. 5J-17.052","sourceUrl":"https://www.law.cornell.edu/regulations/florida/Fla-Admin-Code-Ann-R-5J-17-052","detail":"Recording a corner as found or set without a physical monument is a false statement on a sealed document."},{"id":"fl-177-510-disturbing-monuments","title":"Willfully disturbing, removing, or destroying a plat monument or reference monument without written permission is a first-degree misdemeanor.","cat":"monument","conf":"confirmed","source":"Fla. Stat. 177.510","sourceUrl":"https://www.flsenate.gov/Laws/Statutes/2018/Chapter177/All","detail":"Leverage when concrete or site crews bury or rip out lot corners. Lot corners are required plat monuments under 177.091."},{"id":"fl-177-091-lot-corner-timing","title":"Lot corner monuments must be set before the bond expires where subdivision improvements are bonded, or before transfer of the lot where they are not.","cat":"monument","conf":"confirmed","source":"Fla. Stat. 177.091","sourceUrl":"https://www.flsenate.gov/Laws/Statutes/2018/Chapter177/All"},{"id":"fl-472-029-right-of-entry","title":"Surveyors and their crews may enter the lands of others when necessary to make surveys or locate or set monuments, but may not damage or move physical improvements without the landowner's written permission.","cat":"access","conf":"confirmed","source":"Fla. Stat. 472.029","sourceUrl":"https://flsenate.gov/laws/statutes/2020/472.029","detail":"Covers crossing a neighboring lot to reach a corner. Does not cover removing fences, sod, or landscaping."},{"id":"fl-556-108-811-exemption","title":"Survey excavation of 18 inches or less is exempt from Sunshine 811 locate requirements if no mechanized equipment is used. The exemption does not apply inside marked rights-of-way or marked easements.","cat":"other","conf":"confirmed","appliesTo":["corner set","boundary"],"source":"Fla. Stat. 556.108(4)(a)","sourceUrl":"https://www.flsenate.gov/Laws/Statutes/2023/Chapter556/All","detail":"Driving a rod deeper than 18 in, using a powered driver, or setting inside a flagged utility easement needs a locate ticket."},{"id":"fl-fbc-flood-lowest-floor","title":"In flood hazard areas, lowest floor elevation certification is due when the lowest floor is placed and before further vertical construction. A final lowest floor certification is due at final inspection. Prepared by a licensed surveyor or registered design professional.","cat":"submittal","conf":"confirmed","appliesTo":["form","slab","final"],"source":"Florida Building Code 8th Ed., Building 110.3 and Residential R322.1.10","sourceUrl":"https://www.floridadisaster.org/globalassets/8th-ed_fbc_floodprovisions_dec20232.pdf","detail":"Any lot in an A or V zone. Worth a flood-zone flag on subs where it applies."},{"id":"fl-fbc-drainage-6in-10ft","title":"Grade must fall at least 6 inches within the first 10 feet from the foundation. Impervious surfaces within 10 feet slope at least 2% away.","cat":"tolerance","conf":"confirmed","appliesTo":["final","as-built","grade stake"],"source":"Florida Building Code R401.3, as quoted in Osceola County lot grading guidance","sourceUrl":"https://www.osceola.org/files/assets/county/v/1/doing-business/applications/documents/081722_lot-grading-ada.pdf"}]},"builders":[{"id":"taylor-morrison","name":"Taylor Morrison","reqs":[{"id":"taylor-morrison-ppe-strict","title":"PPE enforced strictly on all Taylor Morrison sites.","cat":"ppe","conf":"observed","source":"Romey Macy","detail":"Get the builder's written PPE list. Esplanade-branded communities are Taylor Morrison."}]},{"id":"lennar","name":"Lennar Homes","reqs":[]},{"id":"kolter","name":"Kolter Homes","reqs":[]},{"id":"casa-fresca","name":"Casa Fresca","reqs":[]},{"id":"american-homes","name":"American Homes","reqs":[]},{"id":"nvr","name":"NVR (Ryan Homes)","reqs":[]},{"id":"toll-brothers","name":"Toll Brothers","reqs":[]},{"id":"pulte","name":"PulteGroup","reqs":[]},{"id":"drb","name":"DRB Homes","reqs":[]},{"id":"century-communities","name":"Century Communities","reqs":[]}],"cities":[{"id":"fl-orange","name":"Orange County","state":"FL","reqs":[{"id":"orange-grade-tolerance","title":"Grade points must fall within 0.2 ft up or down of design grade.","cat":"tolerance","conf":"observed","appliesTo":["as-built","final survey"],"detail":"Enforced strictly in the field. NOT found in published county documents. The published tolerance is on finished floor (see orange-ffe-tolerance). Likely an inspector or county engineering practice on lot grading final inspection. Ask the inspector which document it comes from."},{"id":"orange-ffe-tolerance","title":"Finished floor must be no more than 0.1 ft below and no more than 0.5 ft above the approved design elevation (subdivision lots with an approved master grading plan).","cat":"tolerance","conf":"confirmed","appliesTo":["slab","form","final"],"source":"Orange County Lot Grading Policy, rev. 05/01/2023","sourceUrl":"https://www.orangecountyfl.net/Portals/0/resource%20library/traffic%20-%20transportation/Orange%20County%20Lot%20Grading%20Policy%2005.01.2023.pdf","detail":"Older procedure doc allows +0.6 ft (setback under 7.5 ft) or +1.0 ft (7.5 ft or more). The 2023 policy is current. Below-design tolerance is only 0.1 ft."},{"id":"orange-lot-grading-points","title":"Lot grading plans and surveys show elevations at all four lot corners, grade break points along the sides, swale, crown of street, and finished floor. Minimum grading slope 1%.","cat":"submittal","conf":"confirmed","appliesTo":["as-built","final","grade stake"],"source":"Orange County Lot Grading Policy, rev. 05/01/2023","sourceUrl":"https://www.orangecountyfl.net/Portals/0/resource%20library/traffic%20-%20transportation/Orange%20County%20Lot%20Grading%20Policy%2005.01.2023.pdf"},{"id":"orange-ffe-crown","title":"Finished floor minimum 18 in (1.5 ft) above road centerline and 1 ft above the 100-year flood elevation.","cat":"tolerance","conf":"confirmed","appliesTo":["slab","form"],"source":"Orange County Lot Grading Policy, rev. 05/01/2023","sourceUrl":"https://www.orangecountyfl.net/Portals/0/resource%20library/traffic%20-%20transportation/Orange%20County%20Lot%20Grading%20Policy%2005.01.2023.pdf"},{"id":"orange-driveway-sidewalk","title":"Driveways at least 3 ft from the property line. Five-foot concrete sidewalks required.","cat":"other","conf":"confirmed","appliesTo":["form","driveway","sidewalk"],"source":"Orange County Lot Grading Policy, rev. 05/01/2023","sourceUrl":"https://www.orangecountyfl.net/Portals/0/resource%20library/traffic%20-%20transportation/Orange%20County%20Lot%20Grading%20Policy%2005.01.2023.pdf"},{"id":"orange-hours","title":"Permitted construction 7:00 AM to 9:00 PM, all days (unincorporated Orange County).","cat":"hours","conf":"confirmed","source":"Orange County noise ordinance, effective Aug 14, 2025","sourceUrl":"https://www.orangecountyfl.net/Environment/noise.aspx","detail":"Noise ordinances regulate construction activity. Survey work on an active site is generally treated as construction activity by code enforcement; plan early starts accordingly. Cut from 10 PM to 9 PM in 2025."}]},{"id":"fl-osceola","name":"Osceola County","state":"FL","reqs":[{"id":"osceola-lot-grading-points","title":"Lot grading plans show spot elevations at all lot corners and along the sides, swale cross sections at property lines, road centerline, and finished floor. A final survey may be required to show positive drainage before final acceptance.","cat":"submittal","conf":"confirmed","appliesTo":["final","as-built","grade stake"],"source":"Osceola County Lot Grading guidance (08/2022)","sourceUrl":"https://www.osceola.org/files/assets/county/v/1/doing-business/applications/documents/081722_lot-grading-ada.pdf"},{"id":"osceola-hours","title":"Construction hours not yet confirmed.","cat":"hours","conf":"observed","detail":"County code Ch. 9 Art. IV (Sec. 9-110). Municode and elaws pages were not reachable during research. Look up manually."}]},{"id":"fl-polk","name":"Polk County","state":"FL","reqs":[{"id":"polk-hours","title":"Permitted projects may work 6:00 AM to 9:00 PM (unincorporated Polk County).","cat":"hours","conf":"confirmed","source":"Polk County Noise Control Ordinance 14-030, Sec. 10, per Polk Code Enforcement FAQ","sourceUrl":"https://www.polkfl.gov/public-safety/code-enforcement/faqs/","detail":"Noise ordinances regulate construction activity. Survey work on an active site is generally treated as construction activity by code enforcement; plan early starts accordingly."}]},{"id":"fl-lake","name":"Lake County","state":"FL","reqs":[{"id":"lake-setback-elevation-hold","title":"Public Works performs a setback and elevation inspection (114) before the mono slab/foundation inspection. A hold is placed on the slab inspection until it passes.","cat":"inspection","conf":"confirmed","appliesTo":["form","slab"],"source":"Lake County Office of Building Services, BF300 Required Inspections SFR (Apr 2024)","sourceUrl":"https://cdn.lakecountyfl.gov/media/4vsm5ptr/bf300-required-inspections-sfd-internal-ada.pdf","detail":"Form survey delays in Lake County hold up the pour. Treat Lake County forms as due-date critical."},{"id":"lake-driveway-sidewalk-inspection","title":"Public Works driveway/sidewalk inspection occurs after concrete placement.","cat":"inspection","conf":"confirmed","appliesTo":["driveway","sidewalk"],"source":"Lake County BF300 Required Inspections SFR (Apr 2024)","sourceUrl":"https://cdn.lakecountyfl.gov/media/4vsm5ptr/bf300-required-inspections-sfd-internal-ada.pdf"},{"id":"lake-hours","title":"No outdoor construction equipment in residential zones between 7:00 PM and 7:00 AM. Concrete delivery and placement for residential slabs is exempt.","cat":"hours","conf":"confirmed","source":"Lake County Code Sec. 14-35(1)","sourceUrl":"https://mccmeetingspublic.blob.core.usgovcloudapi.net/hwyhllsfl-meet-76f7d17c6df24fd88787a30ea58351cb/ITEM-Attachment-001-a2b6148d848e4cbdb2456286138a8bb3.pdf","detail":"Noise ordinances regulate construction activity. Survey work on an active site is generally treated as construction activity by code enforcement; plan early starts accordingly. Applies to unincorporated residential zoning (R, AR, RA, residential PUD)."}]},{"id":"fl-seminole","name":"Seminole County","state":"FL","reqs":[{"id":"seminole-ffe-tolerance","title":"Finished floor no more than 0.1 ft below and no more than 0.5 ft above approved design elevation.","cat":"tolerance","conf":"confirmed","appliesTo":["slab","form","final"],"source":"Seminole County Residential Lot Grading & Drainage guidelines","sourceUrl":"https://www.seminolecountyfl.gov/core/fileparse.php/3248/urlt/RESIDENTIAL-LOT-GRADING.pdf"},{"id":"seminole-topo-extent","title":"Topographic surveys extend at least 25 ft beyond the property line and are signed and sealed by a Florida surveyor.","cat":"submittal","conf":"confirmed","appliesTo":["topo","boundary"],"source":"Seminole County Residential Lot Grading & Drainage guidelines","sourceUrl":"https://www.seminolecountyfl.gov/core/fileparse.php/3248/urlt/RESIDENTIAL-LOT-GRADING.pdf"},{"id":"seminole-hours","title":"Construction permitted 7:00 AM to 11:00 PM (unincorporated Seminole County).","cat":"hours","conf":"confirmed","source":"Orange County noise ordinance comparison table, 03/15/2024","sourceUrl":"https://www.ocfl.net/Portals/0/Library/Environment/docs/Noise%20Ordinance%20Comparison%20Analysis%20Table%203-15-24-CERT.pdf","detail":"Noise ordinances regulate construction activity. Survey work on an active site is generally treated as construction activity by code enforcement; plan early starts accordingly. Secondary source. Confirm against Seminole County code."}]},{"id":"fl-volusia","name":"Volusia County","state":"FL","reqs":[{"id":"volusia-hours","title":"Construction permitted 6:00 AM to 9:00 PM daily, including weekends and holidays (unincorporated Volusia County).","cat":"hours","conf":"confirmed","source":"Volusia County Council action, Dec 2023, as reported by Observer Local News","sourceUrl":"https://www.observerlocalnews.com/news/2023/dec/05/volusia-county-extends-hours-of-operation-for-construction-in-unincorporated-areas/","detail":"Noise ordinances regulate construction activity. Survey work on an active site is generally treated as construction activity by code enforcement; plan early starts accordingly. Cities (DeBary, DeLand, Ormond Beach, New Smyrna Beach) set their own."}]},{"id":"fl-brevard","name":"Brevard County","state":"FL","reqs":[{"id":"brevard-hours","title":"Construction permitted 7:00 AM to 8:00 PM Monday through Saturday. No construction on Sunday (unincorporated Brevard County).","cat":"hours","conf":"confirmed","source":"Brevard County Code Sec. 46-133(a), adopted Aug 22, 2023","sourceUrl":"https://www.brevardfl.gov/docs/default-source/county-attorney-documents/2023-08-09-noise-ordinance.pdf","detail":"Noise ordinances regulate construction activity. Survey work on an active site is generally treated as construction activity by code enforcement; plan early starts accordingly."}]},{"id":"fl-flagler","name":"Flagler County","state":"FL","reqs":[]},{"id":"fl-duval","name":"Duval County","state":"FL","reqs":[]},{"id":"fl-st-johns","name":"St. Johns County","state":"FL","reqs":[]},{"id":"fl-sumter","name":"Sumter County","state":"FL","reqs":[]},{"id":"ga-camden","name":"Camden County","state":"GA","reqs":[{"id":"ga-license","title":"Georgia work requires a Georgia-licensed surveyor in responsible charge. Florida 5J-17 standards do not govern Georgia surveys.","cat":"other","conf":"observed","detail":"Confirm Georgia licensing and Georgia Board minimum standards with the office."}]},{"id":"fl-charlotte","name":"Charlotte County","state":"FL","reqs":[]},{"id":"fl-sarasota","name":"Sarasota County","state":"FL","reqs":[]},{"id":"fl-manatee","name":"Manatee County","state":"FL","reqs":[]},{"id":"fl-hillsborough","name":"Hillsborough County","state":"FL","reqs":[{"id":"hillsborough-hours","title":"Construction permitted 6:00 AM to 8:30 PM.","cat":"hours","conf":"confirmed","source":"Orange County noise ordinance comparison table, 03/15/2024","sourceUrl":"https://www.ocfl.net/Portals/0/Library/Environment/docs/Noise%20Ordinance%20Comparison%20Analysis%20Table%203-15-24-CERT.pdf","detail":"Secondary source."}]},{"id":"fl-pasco","name":"Pasco County","state":"FL","reqs":[]},{"id":"fl-hernando","name":"Hernando County","state":"FL","reqs":[]},{"id":"fl-lee","name":"Lee County","state":"FL","reqs":[]},{"id":"unfiled","name":"Needs filing","state":"","reqs":[],"notes":"Records the seed could not place. Fix the underlying problem, then move them."}],"jurs":[{"id":"fl-apopka","cityId":"fl-orange","name":"Apopka","kind":"city","reqs":[{"id":"apopka-hours","title":"Construction, including site work and excavation, permitted 7:00 AM to 6:00 PM weekdays and 8:00 AM to 5:00 PM Saturday. No Sunday window listed.","cat":"hours","conf":"confirmed","source":"City of Apopka Ordinance No. 2988 (Ch. 38, Art. IV Noise), first reading Dec 21, 2022","sourceUrl":"https://mcclibraryfunctions.azurewebsites.us/api/ordinanceDownload/10117/1244825/pdf","detail":"Noise ordinances regulate construction activity. Survey work on an active site is generally treated as construction activity by code enforcement; plan early starts accordingly. Tightest window found in the active area. Development services director can issue exceptions. Applies only inside city limits; confirm Bronsons Ridge and Ridgebrooke are inside."}]},{"id":"fl-orlando","cityId":"fl-orange","name":"Orlando","kind":"city","reqs":[{"id":"orlando-hours","title":"Construction permitted 7:00 AM to 9:00 PM Monday through Saturday.","cat":"hours","conf":"confirmed","source":"Orange County noise ordinance comparison table, 03/15/2024","sourceUrl":"https://www.ocfl.net/Portals/0/Library/Environment/docs/Noise%20Ordinance%20Comparison%20Analysis%20Table%203-15-24-CERT.pdf","detail":"Noise ordinances regulate construction activity. Survey work on an active site is generally treated as construction activity by code enforcement; plan early starts accordingly. Sunday not listed. A secondary legal blog cites 8 AM to 6 PM weekends. Confirm in Orlando City Code Ch. 42."}]},{"id":"fl-st-cloud","cityId":"fl-osceola","name":"St. Cloud","kind":"city","reqs":[{"id":"stcloud-prepour-corners-exposed","title":"Front property corners must be physically exposed at the time of pre-pour inspection for sidewalks and driveways.","cat":"monument","conf":"observed","appliesTo":["pre-pour","sidewalk","driveway"],"detail":"Enforced recently; crews written up. No published source found. The city website was not reachable during research. Ask the inspector for the checklist or code section. Also confirm the affected subs are inside city limits; if they are unincorporated Osceola, this is a county inspection requirement instead."},{"id":"stcloud-hours","title":"Construction hours not yet confirmed.","cat":"hours","conf":"observed","detail":"City Code Ch. 24, Art. III, Sec. 24-86. Page not reachable during research."},{"id":"st-cloud-pins-exposed-driveway","title":"Property pins must be exposed at the driveway pre-pour inspection so the inspector can verify the sidewalk is in the correct location.","cat":"inspection","conf":"confirmed","appliesTo":["driveway","sidewalk","form","final"],"source":"City of St. Cloud inspection code 2000 (Driveway Pre-Pour), failed inspection 2026-09-21, permit B26-00002282, inspector Keith LaFontaine","detail":"Caught on 5172 Loyalty Drive, Edgewater at Cross Prairie Ph 1 Lot 150. A failed pre-pour holds the driveway. If the pins are buried, dig them before the inspector gets there."}]},{"id":"fl-haines-city","cityId":"fl-polk","name":"Haines City","kind":"city","reqs":[{"id":"hainescity-hours","title":"Motorized construction equipment permitted 7:00 AM to 9:00 PM, with working mufflers.","cat":"hours","conf":"confirmed","source":"Haines City Ordinance 20-1695, enacted Aug 6, 2020","sourceUrl":"https://mcclibraryfunctions.azurewebsites.us/api/ordinanceDownload/14651/1163604/pdf","detail":"Noise ordinances regulate construction activity. Survey work on an active site is generally treated as construction activity by code enforcement; plan early starts accordingly."}]},{"id":"fl-dundee","cityId":"fl-polk","name":"Dundee","kind":"city","reqs":[]},{"id":"fl-winter-haven","cityId":"fl-polk","name":"Winter Haven","kind":"city","reqs":[]},{"id":"fl-lake-wales","cityId":"fl-polk","name":"Lake Wales","kind":"city","reqs":[]},{"id":"fl-davenport","cityId":"fl-polk","name":"Davenport","kind":"city","reqs":[]},{"id":"fl-montverde","cityId":"fl-lake","name":"Montverde","kind":"city","reqs":[]},{"id":"fl-tavares","cityId":"fl-lake","name":"Tavares","kind":"city","reqs":[]},{"id":"fl-mount-dora","cityId":"fl-lake","name":"Mount Dora","kind":"city","reqs":[]},{"id":"fl-groveland","cityId":"fl-lake","name":"Groveland","kind":"city","reqs":[]},{"id":"fl-leesburg","cityId":"fl-lake","name":"Leesburg","kind":"city","reqs":[]},{"id":"fl-clermont","cityId":"fl-lake","name":"Clermont","kind":"city","reqs":[{"id":"clermont-hours","title":"Restricted construction hours reported. Window not confirmed.","cat":"hours","conf":"observed","detail":"No published hours found. No active sub currently maps inside Clermont city limits (EA McKinnon Groves is Lake County Wellness Way). Keep for future subs."}]},{"id":"fl-sanford","cityId":"fl-seminole","name":"Sanford","kind":"city","reqs":[]},{"id":"fl-debary","cityId":"fl-volusia","name":"DeBary","kind":"city","reqs":[]},{"id":"fl-deland","cityId":"fl-volusia","name":"DeLand","kind":"city","reqs":[]},{"id":"fl-new-smyrna-beach","cityId":"fl-volusia","name":"New Smyrna Beach","kind":"city","reqs":[]},{"id":"fl-ormond-beach","cityId":"fl-volusia","name":"Ormond Beach","kind":"city","reqs":[]},{"id":"fl-palm-coast","cityId":"fl-flagler","name":"Palm Coast","kind":"city","reqs":[{"id":"palmcoast-foundation-survey","title":"Foundation survey required before vertical construction on single-family and duplex.","cat":"submittal","conf":"confirmed","appliesTo":["form","slab"],"source":"City of Palm Coast building permit information package","sourceUrl":"https://docs.palmcoastgov.com/departments/building/permitting/building%20permit%20checklist.pdf"},{"id":"palmcoast-final-survey","title":"Final survey required before final inspection.","cat":"submittal","conf":"confirmed","appliesTo":["final"],"source":"City of Palm Coast building permit information package","sourceUrl":"https://docs.palmcoastgov.com/departments/building/permitting/building%20permit%20checklist.pdf"},{"id":"palmcoast-navd88","title":"Topographic surveys and lot grading plans must reference NAVD 1988.","cat":"benchmark","conf":"confirmed","appliesTo":["topo","final","as-built"],"source":"City of Palm Coast building permit information package","sourceUrl":"https://docs.palmcoastgov.com/departments/building/permitting/building%20permit%20checklist.pdf"},{"id":"palmcoast-hours","title":"Construction permitted 7:00 AM to 6:00 PM; Sunday start 9:00 AM.","cat":"hours","conf":"confirmed","source":"City of Palm Coast Help Center, \"What are the legal construction hours?\"","sourceUrl":"https://www.palmcoast.gov/HelpCenter/Home/Details/what-are-the-legal-construction-hours","detail":"Noise ordinances regulate construction activity. Survey work on an active site is generally treated as construction activity by code enforcement; plan early starts accordingly. City wording is ambiguous on the Sunday end time."}]},{"id":"fl-jacksonville","cityId":"fl-duval","name":"Jacksonville","kind":"city","reqs":[{"id":"jax-hours","title":"Construction permitted 7:00 AM to 10:00 PM, with decibel limits by land class.","cat":"hours","conf":"confirmed","source":"Orange County noise ordinance comparison table, 03/15/2024","sourceUrl":"https://www.ocfl.net/Portals/0/Library/Environment/docs/Noise%20Ordinance%20Comparison%20Analysis%20Table%203-15-24-CERT.pdf","detail":"Secondary source."}]},{"id":"fl-cocoa","cityId":"fl-brevard","name":"Cocoa","kind":"city","reqs":[]},{"id":"ga-kingsland","cityId":"ga-camden","name":"Kingsland","kind":"city","reqs":[]},{"id":"ga-st-marys","cityId":"ga-camden","name":"St. Marys","kind":"city","reqs":[]},{"id":"fl-north-port","cityId":"fl-sarasota","name":"North Port","kind":"city","reqs":[]},{"id":"fl-venice","cityId":"fl-sarasota","name":"Venice","kind":"city","reqs":[]},{"id":"fl-punta-gorda","cityId":"fl-charlotte","name":"Punta Gorda","kind":"city","reqs":[]},{"id":"fl-tampa","cityId":"fl-hillsborough","name":"Tampa","kind":"city","reqs":[]},{"id":"fl-plant-city","cityId":"fl-hillsborough","name":"Plant City","kind":"city","reqs":[]},{"id":"fl-palmetto","cityId":"fl-manatee","name":"Palmetto","kind":"city","reqs":[]},{"id":"fl-brooksville","cityId":"fl-hernando","name":"Brooksville","kind":"city","reqs":[]},{"id":"fl-brevard-uninc","cityId":"fl-brevard","name":"Unincorporated Brevard County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-charlotte-uninc","cityId":"fl-charlotte","name":"Unincorporated Charlotte County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-duval-uninc","cityId":"fl-duval","name":"Unincorporated Duval County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-flagler-uninc","cityId":"fl-flagler","name":"Unincorporated Flagler County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-hernando-uninc","cityId":"fl-hernando","name":"Unincorporated Hernando County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-hillsborough-uninc","cityId":"fl-hillsborough","name":"Unincorporated Hillsborough County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-lake-uninc","cityId":"fl-lake","name":"Unincorporated Lake County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-lee-uninc","cityId":"fl-lee","name":"Unincorporated Lee County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-manatee-uninc","cityId":"fl-manatee","name":"Unincorporated Manatee County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-orange-uninc","cityId":"fl-orange","name":"Unincorporated Orange County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-osceola-uninc","cityId":"fl-osceola","name":"Unincorporated Osceola County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-pasco-uninc","cityId":"fl-pasco","name":"Unincorporated Pasco County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-polk-uninc","cityId":"fl-polk","name":"Unincorporated Polk County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-sarasota-uninc","cityId":"fl-sarasota","name":"Unincorporated Sarasota County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-seminole-uninc","cityId":"fl-seminole","name":"Unincorporated Seminole County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-st-johns-uninc","cityId":"fl-st-johns","name":"Unincorporated St. Johns County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-sumter-uninc","cityId":"fl-sumter","name":"Unincorporated Sumter County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"fl-volusia-uninc","cityId":"fl-volusia","name":"Unincorporated Volusia County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"ga-camden-uninc","cityId":"ga-camden","name":"Unincorporated Camden County","kind":"etj","reqs":[],"notes":"Municipality not verified — the point-in-polygon step has not run, so every sub in this county landed here. Some sit inside a city; those say which one."},{"id":"unfiled-uninc","cityId":"unfiled","name":"No county","kind":"other","reqs":[],"notes":"No county could be assigned. See each sub for why."}],"subs":[{"id":"atla-key","jurId":"fl-charlotte-uninc","name":"Atla Key","lat":26.79539,"lon":-81.7040872,"lastJob":"2026-07-31","workTypes":["MISC","FORM","BOUNDARY","ENVELOPE"],"notes":"Babcock Ranch area"},{"id":"avalon-lake-townhomes","jurId":"fl-orange-uninc","name":"Avalon Lake Townhomes","lat":28.5103321,"lon":-81.1571835,"lastJob":"2026-06-08","workTypes":["BENCHMARK"]},{"id":"babcock-ranch-community-sanctuary","jurId":"fl-charlotte-uninc","name":"Babcock Ranch Community (Sanctuary)","lat":26.7975847,"lon":-81.723735,"aliases":["Babcock Ranch Community ("],"lastJob":"2026-07-29","workTypes":["FORM","FINAL","GRADE STAKE","ENVELOPE"],"notes":"Babcock Ranch"},{"id":"benton-hills","jurId":"fl-hernando-uninc","name":"Benton Hills","lat":28.4835531,"lon":-82.2262726,"lastJob":"2026-07-31","workTypes":["FORM","SLAB","ENVELOPE","FINAL"],"notes":"Brooksville mailing"},{"id":"berry-bay","jurId":"fl-hillsborough-uninc","name":"Berry Bay","lat":27.6734944,"lon":-82.34718,"lastJob":"2026-07-29","workTypes":["FINAL","GRADE STAKE"],"notes":"Wimauma area"},{"id":"bloomingdale-townes","jurId":"fl-hillsborough-uninc","name":"Bloomingdale Townes","lat":27.8976032,"lon":-82.265629,"notes":"Brandon mailing"},{"id":"brighton-jacaranda","jurId":"fl-sarasota-uninc","name":"Brighton/Jacaranda","lat":27.0893307,"lon":-82.3877111,"aliases":["Brighton-Jacaranda"],"lastJob":"2026-07-31","workTypes":["SLAB","FORM","BOUNDARY","MISC"],"notes":"Venice mailing"},{"id":"bronsons-ridge","jurId":"fl-orange-uninc","name":"Bronsons Ridge","lat":28.66121,"lon":-81.53785599999999,"active":true,"lastJob":"2026-08-11","workTypes":["FINAL","GRADE STAKE","MISC","ENVELOPE"],"munCandidate":"Apopka","notes":"Apopka mailing"},{"id":"cassata-lakes","jurId":"fl-sarasota-uninc","name":"Cassata Lakes","lat":27.1432698,"lon":-82.4273097,"lastJob":"2026-06-03","workTypes":["FINAL"]},{"id":"central-parc","jurId":"fl-sarasota-uninc","name":"Central Parc","lat":27.0486731,"lon":-82.2224959,"lastJob":"2026-07-31","workTypes":["FORM","BOUNDARY","ENVELOPE","MISC"],"munCandidate":"North Port"},{"id":"congdon-townhomes-grove","jurId":"fl-polk-uninc","name":"Congdon Townhomes (Grove","lat":28.124466,"lon":-81.5931929,"lastJob":"2026-07-31","workTypes":["FINAL"],"munCandidate":"Haines City"},{"id":"creekside-at-rutland-ranch","jurId":"fl-manatee-uninc","name":"Creekside at Rutland Ranch","lat":27.571835,"lon":-82.382179,"aliases":["Creekside At Rutland Ranc"],"lastJob":"2026-07-31","workTypes":["FINAL","SLAB","MISC","FORM"],"notes":"Parrish mailing"},{"id":"cresswind-at-lake-harris","jurId":"fl-lake-uninc","name":"Cresswind at Lake Harris","lat":28.7900108,"lon":-81.7746762,"aliases":["Cresswind at Lake"],"active":true,"lastJob":"2026-09-24","workTypes":["FINAL","ENVELOPE","FORM","GRADE STAKE"],"builderIds":["kolter"],"notes":"near Tavares/Leesburg"},{"id":"cresswind-jax","jurId":"fl-flagler-uninc","name":"Cresswind Jax","lat":29.43103994606646,"lon":-81.15578951105799,"aliases":["Cresswind"],"lastJob":"2026-06-11","workTypes":["BENCHMARK"],"notes":"coords are Palm Coast area, not Jacksonville"},{"id":"crosswind-ranch","jurId":"fl-manatee-uninc","name":"Crosswind Ranch","lat":27.5958988,"lon":-82.41090109999999,"lastJob":"2026-07-31","workTypes":["UPDATE","FINAL","GRADE STAKE","MISC"],"notes":"Parrish mailing"},{"id":"crosswinds-east","jurId":"fl-polk-uninc","name":"Crosswinds East","lat":28.1225476,"lon":-81.5849363,"active":true,"lastJob":"2026-09-24","workTypes":["FINAL","SLAB","FORM","GRADE STAKE"],"builderIds":["casa-fresca"],"munCandidate":"Haines City","notes":"Haines City mailing"},{"id":"crystal-lake-preserve","jurId":"fl-polk-uninc","name":"Crystal Lake Preserve","lat":28.0269368,"lon":-81.6358742,"aliases":["Crystal Lake Pres"],"active":true,"lastJob":"2026-09-22","workTypes":["FINAL","FORM","ENVELOPE","SLAB"],"munCandidate":"Dundee","reqs":[{"id":"crystal-lake-preserve-laths","title":"Laths required at property corners.","cat":"monument","conf":"confirmed","source":"Romey Macy","detail":"Recorded as \"Crystal Lakes\". Confirm this is the same community."}],"notes":"Dundee mailing"},{"id":"ea-mckinnon-groves","jurId":"fl-lake-uninc","name":"EA McKinnon Groves","lat":28.5089659,"lon":-81.6628818,"aliases":["EA-McKinnon Groves","EA McKinnon Grove"],"active":true,"lastJob":"2026-09-24","workTypes":["FORM","ENVELOPE","FINAL","GRADE STAKE"],"builderIds":["taylor-morrison"],"reqs":[{"id":"ea-mckinnon-ppe-strict","title":"PPE enforced strictly.","cat":"ppe","conf":"observed","source":"Romey Macy","detail":"Taylor Morrison community; builder rule also applies."}],"notes":"Wellness Way area, Winter Garden/Clermont mailing; coords sit just west of the Orange County line"},{"id":"edgewater-cross-prairie","jurId":"fl-osceola-uninc","name":"Edgewater Cross Prairie","lat":28.218153,"lon":-81.33556899999999,"aliases":["Edgewater Cross P"],"active":true,"lastJob":"2026-09-24","workTypes":["FINAL","GRADE STAKE","FORM","SLAB"],"builderIds":["lennar"],"munCandidate":"St. Cloud","notes":"St. Cloud mailing"},{"id":"esplanade-at-center-lake-ranch","jurId":"fl-osceola-uninc","name":"Esplanade at Center Lake Ranch","lat":28.28076528009633,"lon":-81.22272350615985,"aliases":["Esplanade at Center Lake","Esplanade at Cent"],"active":true,"lastJob":"2026-09-23","workTypes":["FORM","FINAL","ENVELOPE","GRADE STAKE"],"builderIds":["taylor-morrison"],"munCandidate":"St. Cloud","notes":"St. Cloud mailing"},{"id":"founders-corner-waterlin","jurId":"fl-osceola-uninc","name":"Founders Corner (Waterlin","lat":28.1545443,"lon":-81.2739406,"lastJob":"2026-07-27","workTypes":["FORM","ENVELOPE","MISC"],"notes":"Harmony area"},{"id":"garden-hill-at-providence","jurId":"fl-polk-uninc","name":"Garden Hill at Providence","lat":28.190841,"lon":-81.54766099999999,"active":true,"lastJob":"2026-09-24","workTypes":["FINAL","GRADE STAKE","SLAB","FORM"],"builderIds":["lennar"],"notes":"Davenport mailing, Providence"},{"id":"gum-lake-preserve","jurId":"fl-polk-uninc","name":"Gum Lake Preserve","lat":28.1237304,"lon":-81.730394,"active":true,"lastJob":"2026-09-24","workTypes":["FORM","ENVELOPE","SLAB","GRADE STAKE"],"builderIds":["casa-fresca"]},{"id":"hamilton-bluff","jurId":"fl-polk-uninc","name":"Hamilton Bluff","lat":28.0493937,"lon":-81.6139975,"aliases":["Hamilton Bluff Subdivision","Hamilton Bluff Subdivisio"],"active":true,"lastJob":"2026-09-22","workTypes":["ENVELOPE","FINAL","FORM","GRADE STAKE"],"munCandidate":"Haines City","notes":"Haines City mailing; may be Lake Hamilton"},{"id":"harmony-on-lake-eloise","jurId":"fl-polk-uninc","name":"Harmony on Lake Eloise","lat":27.9759462,"lon":-81.7186062,"active":true,"lastJob":"2026-09-23","workTypes":["ENVELOPE"],"munCandidate":"Winter Haven"},{"id":"heritage-station","jurId":"fl-charlotte-uninc","name":"Heritage Station","lat":26.936444,"lon":-82.0444313,"lastJob":"2026-07-31","workTypes":["BOUNDARY","ENVELOPE","FORM","FINAL"],"munCandidate":"Punta Gorda","notes":"Punta Gorda mailing"},{"id":"hidden-ridge-at-estate","jurId":"fl-lake-uninc","name":"Hidden Ridge at Estate","lat":28.60532,"lon":-81.802779,"munCandidate":"Groveland","notes":"Groveland mailing; duplicate of Hidden Ridge at Estates at Cherry Lake"},{"id":"hidden-ridge-at-estates-at-cherry-lake","jurId":"fl-lake-uninc","name":"Hidden Ridge at Estates at Cherry Lake","lat":28.60532,"lon":-81.802779,"aliases":["Hidden Ridge at Estates a"],"lastJob":"2026-06-12","workTypes":["GRADE STAKE","FINAL"],"munCandidate":"Groveland","notes":"Groveland mailing"},{"id":"hillcrest-east","jurId":"fl-pasco-uninc","name":"Hillcrest East","lat":28.3292969,"lon":-82.3578963,"lastJob":"2026-07-16","workTypes":["FORM"]},{"id":"hills-of-montverde","jurId":"fl-lake-uninc","name":"Hills of Montverde","lat":28.5859861,"lon":-81.705044,"aliases":["Hills of Monteverde"],"active":true,"lastJob":"2026-09-23","workTypes":["FORM","ENVELOPE","GRADE STAKE","FINAL"],"munCandidate":"Montverde"},{"id":"hillwood-expansion","jurId":"unfiled-uninc","name":"Hillwood Expansion","notes":"no coordinates in dispatch"},{"id":"k-bar-ranch-homestead-mo","jurId":"fl-hillsborough-uninc","name":"K-Bar Ranch Homestead (Mo","lat":28.1571685,"lon":-82.2718493,"lastJob":"2026-07-31","workTypes":["BOUNDARY"],"munCandidate":"Tampa","notes":"New Tampa"},{"id":"kentucky-square","jurId":"fl-seminole-uninc","name":"Kentucky Square","lat":28.7571259,"lon":-81.2262361,"active":true,"lastJob":"2026-09-10","workTypes":["BENCHMARK","ENVELOPE"],"munCandidate":"Sanford"},{"id":"kings-gate","jurId":"fl-charlotte-uninc","name":"Kings Gate","lat":27.0077971,"lon":-82.0471804,"lastJob":"2026-07-31","workTypes":["FINAL","BOUNDARY","GRADE STAKE","SLAB"],"notes":"Port Charlotte area"},{"id":"landings-at-pecan-park","jurId":"fl-duval-uninc","name":"Landings at Pecan Park","lat":30.5044949,"lon":-81.6270316,"lastJob":"2026-07-30","workTypes":["MISC","FINAL","GRADE STAKE"],"munCandidate":"Jacksonville","notes":"Jacksonville mailing (consolidated city-county)"},{"id":"laureate-park","jurId":"fl-orange-uninc","name":"Laureate Park","lat":28.3509330795464,"lon":-81.25617683764351,"active":true,"lastJob":"2026-09-23","workTypes":["FINAL","ENVELOPE","FORM","GRADE STAKE"],"munCandidate":"Orlando","notes":"Lake Nona"},{"id":"laurel-preserve","jurId":"ga-camden-uninc","name":"Laurel Preserve","lat":30.801581,"lon":-81.6081858,"active":true,"lastJob":"2026-09-10","workTypes":["GRADE STAKE","FORM","MISC","FINAL"],"notes":"Georgia"},{"id":"leala-reserve","jurId":"fl-lake-uninc","name":"Leala Reserve","lat":28.7669098,"lon":-81.7556026,"aliases":["Leela Reserve"],"active":true,"lastJob":"2026-09-24","workTypes":["FORM","ENVELOPE","FINAL"],"builderIds":["american-homes"],"munCandidate":"Tavares","notes":"Tavares mailing"},{"id":"liberty-trace","jurId":"fl-polk-uninc","name":"Liberty Trace","lat":28.106857,"lon":-81.596948,"active":true,"lastJob":"2026-09-23","workTypes":["FORM","ENVELOPE","FINAL"],"munCandidate":"Haines City","reqs":[{"id":"liberty-trace-benchmark","title":"Site benchmark on file.","cat":"benchmark","conf":"observed","detail":"PENDING: designation, description, and elevation not yet supplied."}]},{"id":"lochside","jurId":"fl-lake-uninc","name":"Lochside","lat":28.8242302,"lon":-81.63696039999999,"active":true,"lastJob":"2026-09-24","workTypes":["MISC","FINAL","GRADE STAKE","ENVELOPE"],"builderIds":["taylor-morrison"],"munCandidate":"Mount Dora","notes":"Mt. Dora mailing"},{"id":"magnolia-bay-north","jurId":"fl-sarasota-uninc","name":"Magnolia Bay North","lat":27.163068161377282,"lon":-82.42518054692857,"lastJob":"2026-07-31","workTypes":["SLAB","FORM","ENVELOPE","GRADE STAKE"],"notes":"Nokomis mailing"},{"id":"magnolia-bay-south","jurId":"fl-sarasota-uninc","name":"Magnolia Bay South","lat":27.1568244234259,"lon":-82.41701788979174,"lastJob":"2026-07-31","workTypes":["FORM","GRADE STAKE","SLAB","FINAL"],"notes":"Nokomis mailing"},{"id":"mandarin-grove","jurId":"fl-manatee-uninc","name":"Mandarin Grove","lat":27.6149758,"lon":-82.5266556,"lastJob":"2026-07-31","workTypes":["GRADE STAKE","FINAL","SLAB","FORM"]},{"id":"meadow-pointe-at-esta","jurId":"fl-lake-uninc","name":"Meadow Pointe at Esta","lat":28.60532,"lon":-81.802779,"aliases":["Meadow Pointe & Hidden Rd"],"lastJob":"2026-06-11","workTypes":["GRADE STAKE","FINAL"],"munCandidate":"Groveland","notes":"duplicate of Meadow Pointe at Estates at Cherry Lake"},{"id":"meadow-pointe-at-estates-at-cherry-lake","jurId":"fl-lake-uninc","name":"Meadow Pointe at Estates at Cherry Lake","lat":28.60532,"lon":-81.802779,"aliases":["Meadow Pointe at Estates","Meadow Pointe at"],"active":true,"lastJob":"2026-09-24","workTypes":["FORM","FINAL","GRADE STAKE","SLAB"],"builderIds":["lennar"],"munCandidate":"Groveland","notes":"Groveland mailing"},{"id":"northshore","jurId":"ga-camden-uninc","name":"Northshore","lat":30.808358,"lon":-81.782039,"active":true,"lastJob":"2026-09-24","workTypes":["ENVELOPE","FINAL","FORM","GRADE STAKE"],"builderIds":["century-communities"],"munCandidate":"Kingsland","notes":"Georgia, Kingsland mailing"},{"id":"oak-hammock-reserve","jurId":"fl-volusia-uninc","name":"Oak Hammock Reserve","lat":29.0049116,"lon":-81.3278614,"active":true,"lastJob":"2026-09-01","workTypes":["SLAB","GRADE STAKE","ENVELOPE","FORM"],"munCandidate":"DeLand","notes":"DeLand mailing"},{"id":"palm-grove-at-lakewood-ranch","jurId":"fl-manatee-uninc","name":"Palm Grove at Lakewood Ranch","lat":27.478866,"lon":-82.358128,"aliases":["Palm Grove at Lakewood Ranch Subdivision","Palm Grove at Lakewood Ra"],"lastJob":"2026-07-31","workTypes":["FORM","SLAB","FINAL","GRADE STAKE"]},{"id":"palmera-at-wellen-park","jurId":"fl-sarasota-uninc","name":"Palmera At Wellen Park","lat":27.019319427611027,"lon":-82.32939498589148,"aliases":["Palmera Townhomes at Well"],"lastJob":"2026-07-31","workTypes":["FORM","MISC","SLAB","ENVELOPE"],"munCandidate":"Venice","notes":"Wellen Park"},{"id":"palms-venetian-bay","jurId":"fl-volusia-uninc","name":"Palms (Venetian Bay)","lat":29.0263696,"lon":-81.0230546,"aliases":["Palms (Venetian B"],"active":true,"lastJob":"2026-09-24","workTypes":["FINAL","ENVELOPE","FORM","GRADE STAKE"],"builderIds":["nvr"],"munCandidate":"New Smyrna Beach","notes":"Venetian Bay"},{"id":"palms-at-west-port","jurId":"fl-charlotte-uninc","name":"Palms at West Port","lat":27.000063,"lon":-82.1863932,"lastJob":"2026-07-28","workTypes":["FINAL","GRADE STAKE","MISC"],"notes":"Port Charlotte mailing"},{"id":"parkside-townhomes","jurId":"fl-hillsborough-uninc","name":"Parkside Townhomes","lat":28.0149063,"lon":-82.1070449,"lastJob":"2026-05-28","workTypes":["FINAL"],"munCandidate":"Plant City"},{"id":"parkview-at-hamlin","jurId":"fl-orange-uninc","name":"Parkview at Hamlin","lat":28.4761907,"lon":-81.6180135,"active":true,"lastJob":"2026-09-17","workTypes":["FORM","FINAL","ENVELOPE","MISC"],"notes":"Orange County; inherits the 0.2 ft grade point rule.; Horizon West, unincorporated Orange; Winter Garden mailing"},{"id":"parrish-lakes","jurId":"fl-manatee-uninc","name":"Parrish Lakes","lat":27.5864886,"lon":-82.464395,"aliases":["Parish Lakes [Searle]","Parish Lakes [Seairie]","Parrish Lakes [Seaitle]","Parish Lakes (Searle)","Parrish Lakes (Seairie)","Parrish Lakes (Searle)","Parrish Lakes (Seaire)"],"lastJob":"2026-07-27","workTypes":["MISC","SLAB","FORM","ENVELOPE"]},{"id":"pepper-grove","jurId":"fl-manatee-uninc","name":"Pepper Grove","lat":27.5462038,"lon":-82.5306638,"aliases":["Pepper Grove (f.k.a. Paddocks)","Pepper Grove (f.k.a. Padd"],"lastJob":"2026-07-31","workTypes":["GRADE STAKE","FORM","SLAB","FINAL"],"munCandidate":"Palmetto"},{"id":"pine-grove-reserve","jurId":"fl-osceola-uninc","name":"Pine Grove Reserve","lat":28.253289,"lon":-81.1969763,"active":true,"lastJob":"2026-09-22","workTypes":["FORM","FINAL","ENVELOPE","GRADE STAKE"],"munCandidate":"St. Cloud"},{"id":"plat-of-subdivision-surveyesplanade-at-st-marys","jurId":"ga-camden-uninc","name":"Plat of Subdivision SurveyEsplanade at St. Marys","lat":30.7793942,"lon":-81.6161581,"aliases":["Plat of Subdivision Survey(Esplanade at St. Marys)","Plat of Subdivision Surve","Plat of Subdivision Survey(Esplanade at","Plat of Subdivisi"],"active":true,"lastJob":"2026-09-23","workTypes":["FORM","ENVELOPE","BOUNDARY","GRADE STAKE"],"builderIds":["taylor-morrison"],"munCandidate":"St. Marys","notes":"Georgia; dispatch name has a paste error"},{"id":"poitras-n-4-west","jurId":"fl-orange-uninc","name":"Poitras N-4 West","lat":28.3565497,"lon":-81.2624121,"active":true,"lastJob":"2026-09-24","workTypes":["FINAL","GRADE STAKE","FORM","MISC"],"builderIds":["toll-brothers"],"munCandidate":"Orlando","notes":"Lake Nona / Poitras"},{"id":"ponce-preserve","jurId":"fl-flagler-uninc","name":"Ponce Preserve","lat":29.5057889,"lon":-81.211153,"active":true,"lastJob":"2026-09-21","workTypes":["LOCATE"],"munCandidate":"Palm Coast"},{"id":"ridgebrooke","jurId":"fl-orange-uninc","name":"Ridgebrooke","lat":28.7178956,"lon":-81.5586453,"active":true,"lastJob":"2026-09-17","workTypes":["FORM","SLAB"],"munCandidate":"Apopka"},{"id":"riverbank-place","jurId":"fl-seminole-uninc","name":"Riverbank Place","lat":28.8061271,"lon":-81.2268162,"lastJob":"2026-07-24","workTypes":["FINAL","ENVELOPE","FORM"],"munCandidate":"Sanford","notes":"Sanford mailing"},{"id":"riverstone","jurId":"fl-pasco-uninc","name":"Riverstone","lat":28.2032516,"lon":-82.4828224,"lastJob":"2026-07-16","workTypes":["FORM","ENVELOPE","FINAL","GRADE STAKE"],"notes":"Land O' Lakes mailing"},{"id":"rivington","jurId":"fl-volusia-uninc","name":"Rivington","lat":28.8549883,"lon":-81.3417159,"active":true,"lastJob":"2026-09-24","workTypes":["FORM","FINAL","ENVELOPE","GRADE STAKE"],"builderIds":["nvr"],"munCandidate":"DeBary"},{"id":"saddlestone-at-star-farms-lakewood-ranch","jurId":"fl-manatee-uninc","name":"Saddlestone at Star Farms Lakewood Ranch","lat":27.4645264,"lon":-82.35491789999999,"aliases":["Saddlestone at Star Farms"],"lastJob":"2026-07-31","workTypes":["FORM","ENVELOPE","SLAB","FINAL"]},{"id":"sanderling","jurId":"fl-manatee-uninc","name":"Sanderling","lat":27.5648858,"lon":-82.5470477,"lastJob":"2026-07-31","workTypes":["FORM","GRADE STAKE","FINAL","SLAB"],"munCandidate":"Palmetto"},{"id":"sandhill-preserve","jurId":"fl-osceola-uninc","name":"Sandhill Preserve","lat":28.3228701,"lon":-81.2046673,"active":true,"lastJob":"2026-09-24","workTypes":["FINAL","GRADE STAKE"],"builderIds":["american-homes"],"munCandidate":"St. Cloud"},{"id":"sandpiper-pointe","jurId":"fl-sarasota-uninc","name":"Sandpiper Pointe","lat":26.9528971,"lon":-82.340878,"lastJob":"2026-06-30","workTypes":["BOUNDARY","MISC"],"notes":"Englewood area; Sarasota/Charlotte line is close"},{"id":"seminole-palms","jurId":"fl-flagler-uninc","name":"Seminole Palms","lat":29.4532073,"lon":-81.2029591,"active":true,"lastJob":"2026-08-28","workTypes":["FINAL","GRADE STAKE","MISC","UPDATE"],"munCandidate":"Palm Coast","notes":"Palm Coast mailing"},{"id":"seminole-palms-townhomes","jurId":"fl-flagler-uninc","name":"Seminole Palms Townhomes","lat":29.4508913,"lon":-81.184391,"lastJob":"2026-06-29","workTypes":["FINAL","GRADE STAKE"],"munCandidate":"Palm Coast","notes":"Palm Coast mailing"},{"id":"shearwater","jurId":"fl-st-johns-uninc","name":"Shearwater","lat":29.9168465,"lon":-81.5417549,"lastJob":"2026-06-08","workTypes":["BENCHMARK"],"notes":"St. Augustine mailing"},{"id":"shoreline-ranch","jurId":"fl-lake-uninc","name":"Shoreline Ranch","lat":28.9125637,"lon":-81.6175626,"lastJob":"2026-07-17","workTypes":["BOUNDARY"]},{"id":"skye-ranch","jurId":"fl-sarasota-uninc","name":"Skye Ranch","lat":27.2408836,"lon":-82.4022614,"aliases":["Skye Ranch Neighborhood","LT Ranch Neighborhood One"],"lastJob":"2026-07-31","workTypes":["FINAL","FORM","SLAB","ENVELOPE"]},{"id":"sorrento-pines","jurId":"fl-lake-uninc","name":"Sorrento Pines","lat":28.8355646,"lon":-81.5637122,"lastJob":"2026-07-31","workTypes":["FORM","ENVELOPE","MISC"],"notes":"Sorrento"},{"id":"southern-hills-plantation","jurId":"fl-hernando-uninc","name":"Southern Hills Plantation","lat":28.507977,"lon":-82.402231,"lastJob":"2026-07-30","workTypes":["MISC","FORM","ENVELOPE","FINAL"],"munCandidate":"Brooksville"},{"id":"star-farms","jurId":"fl-manatee-uninc","name":"Star Farms","lat":27.4670335,"lon":-82.3675517,"lastJob":"2026-07-27","workTypes":["FORM","GRADE STAKE","FINAL","ENVELOPE"],"notes":"Lakewood Ranch"},{"id":"stillwater-at-lakewood-ranch","jurId":"fl-manatee-uninc","name":"Stillwater at Lakewood Ranch","lat":27.440940602807803,"lon":-82.35012764877281,"aliases":["Stillwater at Lakewood Ra"],"lastJob":"2026-07-31","workTypes":["SLAB","ENVELOPE","FINAL","GRADE STAKE"],"notes":"Lakewood Ranch"},{"id":"sunnyside-reserve","jurId":"fl-lake-uninc","name":"Sunnyside Reserve","lat":28.8084096,"lon":-81.8327495,"active":true,"lastJob":"2026-09-24","workTypes":["FORM","ENVELOPE"],"builderIds":["american-homes"],"munCandidate":"Leesburg"},{"id":"sunstone-village","jurId":"fl-sarasota-uninc","name":"Sunstone Village","lat":27.0258589,"lon":-82.3176249,"aliases":["Sunstone Village (Lakeside)","Sunstone Village [Lakeside]","Sunstone Village (Lakesid"],"lastJob":"2026-07-31","workTypes":["SLAB","BOUNDARY","ENVELOPE","FORM"],"munCandidate":"Venice"},{"id":"the-groves-at-myrtle-stre","jurId":"unfiled-uninc","name":"The Groves at Myrtle Stre","lat":36.0649406,"lon":-86.6461904,"notes":"BAD GEOCODE: coords resolve to Nashville, TN"},{"id":"the-villas-at-camden","jurId":"ga-camden-uninc","name":"The Villas at Camden","lat":30.7841305,"lon":-81.62817629999999,"munCandidate":"Kingsland","notes":"Georgia; likely duplicate of The Villas at Camden Woods"},{"id":"the-villas-at-camden-woods","jurId":"ga-camden-uninc","name":"The Villas at Camden Woods","lat":30.7854672,"lon":-81.6252096,"aliases":["The Villas at Camden Wood","The Villas at Cam"],"active":true,"lastJob":"2026-09-23","workTypes":["FINAL","FORM","MISC","ENVELOPE"],"munCandidate":"Kingsland","notes":"Georgia"},{"id":"tiburon","jurId":"fl-sarasota-uninc","name":"Tiburon","lat":27.1582539,"lon":-82.4326108,"lastJob":"2026-07-31","workTypes":["GRADE STAKE","FINAL","UPDATE","SLAB"],"notes":"Nokomis/Laurel"},{"id":"tideline","jurId":"fl-manatee-uninc","name":"Tideline","lat":27.5028136,"lon":-82.6578012,"lastJob":"2026-07-27","workTypes":["FINAL","GRADE STAKE","MISC","BOUNDARY"],"notes":"Bradenton mailing"},{"id":"townwalk","jurId":"fl-lee-uninc","name":"Townwalk","lat":26.7778267,"lon":-81.747429,"lastJob":"2026-07-14","workTypes":["ENVELOPE","FORM","BOUNDARY"],"notes":"Babcock Ranch; sits near the Charlotte/Lee line"},{"id":"trailside","jurId":"fl-lake-uninc","name":"Trailside","lat":28.78855029999999,"lon":-81.5909719,"active":true,"lastJob":"2026-09-24","workTypes":["FORM","FINAL","ENVELOPE","MISC"],"builderIds":["drb"],"munCandidate":"Mount Dora","notes":"Mt. Dora mailing; near the Orange County line"},{"id":"turnleaf","jurId":"fl-charlotte-uninc","name":"Turnleaf","lat":26.8383922,"lon":-82.0148733,"lastJob":"2026-07-31","workTypes":["FORM","ENVELOPE","BOUNDARY","SLAB"],"notes":"Punta Gorda mailing"},{"id":"two-rivers","jurId":"fl-pasco-uninc","name":"Two Rivers","lat":28.1816513,"lon":-82.2357605,"lastJob":"2026-07-31","workTypes":["ENVELOPE","FORM","MISC"]},{"id":"village-atla-key","jurId":"fl-charlotte-uninc","name":"Village (Atla Key)","lat":26.7984385,"lon":-81.6993111,"lastJob":"2026-06-11","workTypes":["FORM","GRADE STAKE","SLAB","BOUNDARY"],"notes":"Babcock Ranch"},{"id":"villamar","jurId":"fl-polk-uninc","name":"Villamar","lat":27.9562089,"lon":-81.6957273,"active":true,"lastJob":"2026-09-24","workTypes":["SLAB","FINAL","ENVELOPE","FORM"],"builderIds":["casa-fresca"],"munCandidate":"Winter Haven","notes":"Winter Haven mailing"},{"id":"villas-at-bishop-oaks","jurId":"fl-duval-uninc","name":"Villas at Bishop Oaks","lat":30.2485189,"lon":-81.8377304,"active":true,"lastJob":"2026-09-10","workTypes":["ENVELOPE","FORM","MISC","FINAL"],"munCandidate":"Jacksonville","notes":"consolidated city-county"},{"id":"vintera-townhomes","jurId":"fl-sarasota-uninc","name":"Vintera Townhomes","lat":27.1621259,"lon":-82.454876,"aliases":["Vinterra Townhomes"],"lastJob":"2026-05-28","workTypes":["FINAL"],"notes":"Nokomis mailing"},{"id":"vistera","jurId":"fl-sarasota-uninc","name":"Vistera","lat":27.129224,"lon":-82.3919133,"lastJob":"2026-05-21","workTypes":["FINAL"]},{"id":"waters-at-center-lake-ranch","jurId":"fl-osceola-uninc","name":"Waters at Center Lake Ranch","lat":28.28001968941662,"lon":-81.23454055266771,"aliases":["Waters at Center Lake Ran","Waters at Center"],"active":true,"lastJob":"2026-09-24","workTypes":["FORM","FINAL","ENVELOPE","GRADE STAKE"],"builderIds":["taylor-morrison"],"munCandidate":"St. Cloud","notes":"St. Cloud mailing"},{"id":"waterset-wolf-creek","jurId":"fl-hillsborough-uninc","name":"Waterset Wolf Creek","lat":27.7479338,"lon":-82.3933598,"notes":"Apollo Beach"},{"id":"waterstone-subdivision","jurId":"fl-volusia-uninc","name":"Waterstone Subdivision","lat":29.3004887,"lon":-81.1125056,"active":true,"lastJob":"2026-09-24","workTypes":["FORM","FINAL","ENVELOPE","GRADE STAKE"],"builderIds":["pulte"],"munCandidate":"Ormond Beach","notes":"Ormond Beach mailing"},{"id":"weslyn-park","jurId":"fl-osceola-uninc","name":"Weslyn Park","lat":28.336818,"lon":-81.1703692,"active":true,"lastJob":"2026-09-22","workTypes":["FORM","ENVELOPE","FINAL","BENCHMARK"],"notes":"Sunbridge, unincorporated Osceola; St. Cloud mailing"},{"id":"westview","jurId":"fl-osceola-uninc","name":"Westview","lat":28.1569695,"lon":-81.50746459999999,"active":true,"lastJob":"2026-09-24","workTypes":["FINAL","FORM","ENVELOPE","GRADE STAKE"],"builderIds":["lennar"],"notes":"Poinciana, unincorporated Osceola; Kissimmee mailing"},{"id":"whispering-lakes","jurId":"fl-lee-uninc","name":"Whispering Lakes","lat":26.5868175,"lon":-81.6171364,"lastJob":"2026-07-30","workTypes":["FORM","ENVELOPE","GRADE STAKE","FINAL"],"notes":"Lehigh Acres area"},{"id":"windward-preserve","jurId":"fl-brevard-uninc","name":"Windward Preserve","lat":28.4056832,"lon":-80.8118959,"active":true,"lastJob":"2026-09-22","workTypes":["FORM","ENVELOPE","GRADE STAKE","MISC"],"munCandidate":"Cocoa","notes":"Cocoa mailing"},{"id":"windwater","jurId":"fl-manatee-uninc","name":"Windwater","lat":27.5602939,"lon":-82.4227723,"lastJob":"2026-07-31","workTypes":["FINAL","FORM","GRADE STAKE","MISC"],"notes":"Parrish mailing"},{"id":"woodland-crossings","jurId":"fl-sumter-uninc","name":"Woodland Crossings","lat":28.8840863,"lon":-82.0864281,"lastJob":"2026-07-28","workTypes":["FINAL","GRADE STAKE","MISC"]},{"id":"woodland-preserve","jurId":"fl-manatee-uninc","name":"Woodland Preserve","lat":27.5598545,"lon":-82.3975325,"lastJob":"2026-05-05","workTypes":["BENCHMARK"],"notes":"Parrish mailing"},{"id":"woodland-ranch-estates","jurId":"fl-polk-uninc","name":"Woodland Ranch Estates","lat":28.0127689,"lon":-81.5820852,"active":true,"lastJob":"2026-09-24","workTypes":["FINAL","FORM","ENVELOPE","GRADE STAKE"],"builderIds":["lennar"],"munCandidate":"Lake Wales","notes":"Lake Wales mailing"},{"id":"wynnstone","jurId":"fl-polk-uninc","name":"Wynnstone","lat":28.2025753,"lon":-81.6451077,"active":true,"lastJob":"2026-08-07","workTypes":["FINAL","ENVELOPE","FORM","SLAB"],"munCandidate":"Davenport","notes":"Davenport mailing"}]};
+const RULE_CATS={tolerance:'tolerance',monument:'monument',inspection:'inspection',ppe:'PPE',
+  hours:'hours',benchmark:'benchmark',submittal:'submittal',access:'access',other:'other'};
+
+let DB={version:4,global:{reqs:[],docs:[]},builders:[],cities:[],jurs:[],subs:[]};
 let route={v:'home'};
 let searchQ='';
 let mapState={map:null,layer:null,pickMode:null,showNear:true};
@@ -1102,8 +1134,14 @@ function load(){
     }catch(e){console.error(e);toast('could not read saved data',1);}
   }
   DB.cities||=[];DB.jurs||=[];DB.subs||=[];
+  DB.global||={reqs:[],docs:[]};DB.global.reqs||=[];DB.global.docs||=[];
+  DB.builders||=[];
+  for(const c of DB.cities){c.reqs||=[];c.docs||=[];}
+  for(const b of DB.builders){b.reqs||=[];b.docs||=[];}
+  // nothing saved and nothing seeded yet: lay the library down
+  if(!raw&&!DB.cities.length)seedLibrary();
   for(const s of DB.subs){
-    s.reqs||=[];s.docs||=[];s.points||=[];s.crs||={};
+    s.reqs||=[];s.docs||=[];s.points||=[];s.crs||={};s.builderIds||=[];
     s.flags=normFlags(s.flags);
     // "Lennar, Taylor Morrison" was one string; builders are a list now
     if(typeof s.builder==='string'){s.builders=s.builder.split(/\s*,\s*/).filter(Boolean);delete s.builder;}
@@ -1119,6 +1157,20 @@ function load(){
   // once on open rather than re-read and re-converted on every load
   if(raw)save();
 }
+/* Lay the seeded library down as-is. Only ever called into an empty store —
+   it never overwrites anything somebody typed. */
+function seedLibrary(){
+  DB.global={reqs:structuredClone(SEED.global.reqs),docs:[]};
+  DB.builders=structuredClone(SEED.builders).map(b=>({...b,docs:[]}));
+  DB.cities=structuredClone(SEED.cities).map(c=>({...c,docs:[]}));
+  DB.jurs=structuredClone(SEED.jurs).map(j=>({...j,docs:[],crs:{},flags:{},reqs:j.reqs||[]}));
+  DB.subs=structuredClone(SEED.subs).map(s=>({
+    gate:'',contactName:'',contactPhone:'',access:'',benchmark:'',notes:'',
+    crs:{},flags:{},docs:[],points:[],builderIds:[],reqs:[],...s}));
+  DB.seededAt=SEED.generated;
+  DB.version=4;
+}
+
 /* Flags are stored {key: detail} so "hour limits" can say which hours. This
    reads the old array form too, and drops keys no longer in the catalog. */
 function normFlags(f){
@@ -1189,6 +1241,27 @@ function effCrs(s){
   }
   return out;
 }
+const builder=id=>DB.builders.find(b=>b.id===id)||null;
+const buildersOf=s=>(s.builderIds||[]).map(builder).filter(Boolean);
+
+/* Every rule that reaches a subdivision, broadest first, each tagged with the
+   scope it came from. Nothing is copied down — this is computed on the way
+   out, so fixing a county rule fixes every sub under it at once. */
+function effReqs(s){
+  const j=jur(s.jurId), c=j?city(j.cityId):null;
+  const out=[];
+  const add=(reqs,scope,from,ownerKind,ownerId)=>{
+    for(const r of (reqs||[]))out.push({...r,_scope:scope,_from:from,_owner:ownerKind,_ownerId:ownerId});
+  };
+  add(DB.global.reqs,'everywhere','Everywhere','global','global');
+  if(c)add(c.reqs,'county',c.name,'city',c.id);
+  if(j)add(j.reqs,'municipality',j.name,'jur',j.id);
+  for(const b of buildersOf(s))add(b.reqs,'builder',b.name,'builder',b.id);
+  add(s.reqs,'subdivision',null,'sub',s.id);
+  return out;
+}
+const SCOPE_ORDER=['everywhere','county','municipality','builder','subdivision'];
+
 /* flags shown on a sub = its own + the ones its jurisdiction sets for everything
    under it. A sub setting a flag the jurisdiction also sets overrides its detail. */
 function effFlags(s){
@@ -1220,7 +1293,9 @@ function go(h){if(location.hash===h)readRoute();else location.hash=h;}
 function readRoute(){
   const h=(location.hash||'#/').replace(/^#/,'');
   const [,kind,id]=h.split('/');
-  if(kind==='demo'){demoRoute();return;}
+  if(kind==='g'){route={v:'global'};render();document.querySelector('main').scrollTop=0;return;}
+  if(kind==='b'){route=id&&builder(id)?{v:'builder',id}:{v:'builders'};render();
+                 document.querySelector('main').scrollTop=0;return;}
   if(kind==='c'&&city(id))route={v:'city',id};
   else if(kind==='j'&&jur(id))route={v:'jur',id};
   else if(kind==='s'&&sub(id))route={v:'sub',id};
@@ -1230,23 +1305,18 @@ function readRoute(){
 }
 window.addEventListener('hashchange',readRoute);
 
-/* #/demo — the link you send someone cold. Seeds the example library on
-   their machine and drops them into it; if they already have data it just
-   goes home, so the link is never destructive. */
-function demoRoute(){
-  if(DB.cities.length){location.hash='#/';return;}
-  loadDemo();
-}
-
 function contextAdd(){
   if(searchQ)return;
-  if(route.v==='home')editCity();
+  if(route.v==='builders'||route.v==='builder')editBuilder();
+  else if(route.v==='global')editReq(null,'global','global');
+  else if(route.v==='home')editCity();
   else if(route.v==='city')editJur(null,route.id);
   else if(route.v==='jur')editSub(null,route.id);
   else if(route.v==='sub')editPoint(null,route.id);
 }
 function addLabel(){
-  return {home:'+ City',city:'+ Jurisdiction',jur:'+ Subdivision',sub:'+ Control point'}[route.v]||'+ Add';
+  return {home:'+ County',city:'+ Jurisdiction',jur:'+ Subdivision',sub:'+ Control point',
+          builders:'+ Builder',builder:'+ Builder',global:'+ Rule'}[route.v]||'+ Add';
 }
 
 /* ══════════════════ render ══════════════════ */
@@ -1257,19 +1327,29 @@ function render(){
   const v=el('view');
   if(searchQ){v.innerHTML=searchView();wireCards();return;}
   // the record can vanish underneath a view (a delete, an import) — fall home
-  const rec=route.v==='city'?city(route.id):route.v==='jur'?jur(route.id):route.v==='sub'?sub(route.id):true;
+  const rec=route.v==='city'?city(route.id):route.v==='jur'?jur(route.id):route.v==='sub'?sub(route.id)
+           :route.v==='builder'?builder(route.id):true;
   if(!rec)route={v:'home'};
   if(route.v==='home')v.innerHTML=homeView();
   else if(route.v==='city')v.innerHTML=cityView(rec);
   else if(route.v==='jur')v.innerHTML=jurView(rec);
   else if(route.v==='sub'){v.innerHTML=subView(rec);mountSubMap(rec);}
+  else if(route.v==='global')v.innerHTML=globalView();
+  else if(route.v==='builders')v.innerHTML=buildersView();
+  else if(route.v==='builder')v.innerHTML=builderView(rec);
   wireCards();
   el('countNote').textContent=`${DB.subs.length} subs · ${DB.jurs.length} jurisdictions · ${allPoints().length} control pts`;
 }
 function renderCrumbs(){
   const c=el('crumbs');
-  const parts=[`<a onclick="go('#/')">All cities</a>`];
+  const parts=[`<a onclick="go('#/')">The library</a>`];
   if(searchQ){parts.push(`<span class="sep">›</span><span class="here">search “${esc(searchQ)}”</span>`);}
+  else if(route.v==='global'){parts.push(`<span class="sep">›</span><span class="here">Everywhere</span>`);}
+  else if(route.v==='builders'){parts.push(`<span class="sep">›</span><span class="here">Builders</span>`);}
+  else if(route.v==='builder'){
+    parts.push(`<span class="sep">›</span><a onclick="go('#/b')">Builders</a>`);
+    parts.push(`<span class="sep">›</span><span class="here">${esc(builder(route.id).name)}</span>`);
+  }
   else if(route.v==='city'){const x=city(route.id);parts.push(`<span class="sep">›</span><span class="here">${esc(x.name)}</span>`);}
   else if(route.v==='jur'){
     const j=jur(route.id),x=city(j.cityId);
@@ -1307,12 +1387,22 @@ function flagRow(items,cls){
 /* ── landing: one card per city ── */
 function homeView(){
   if(!DB.cities.length)return `<div class="grid"><div class="empty-hint">
-      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Nothing filed yet</div>
-      Sub Intel files what we know by <b>city → county or municipality → subdivision</b>.<br>
-      Start with a city, or load a worked example to see the shape of it.<br><br>
-      <button class="btn btn-primary" onclick="editCity()">+ Add a city</button>
-      <button class="btn" onclick="loadDemo()">load example data</button>
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Empty</div>
+      The library is wiped. Import a backup from <b>⇅</b>, or start a county from scratch.<br><br>
+      <button class="btn btn-primary" onclick="editCity()">+ Add a county</button>
+      <button class="btn" onclick="seedLibrary();save();render()">restore the seeded library</button>
     </div></div>`;
+  const g=DB.global.reqs.length, bn=DB.builders.length;
+  const scopeCards=`
+    <div class="card" data-go="#/g" style="border-color:var(--blue-soft)">
+      <div class="card-title">Everywhere</div>
+      <div class="card-meta">Company baseline and state law — applies on every job</div>
+      <div class="card-stat"><span><b>${g}</b>rules</span></div></div>
+    <div class="card" data-go="#/b">
+      <div class="card-title">Builders</div>
+      <div class="card-meta">Rules that follow the builder, not the ground</div>
+      <div class="card-stat"><span><b>${bn}</b>builders</span>
+        <span><b>${DB.builders.reduce((n,b)=>n+b.reqs.length,0)}</b>rules</span></div></div>`;
   const cards=DB.cities.slice().sort(byName).map(c=>{
     const js=jursIn(c.id),ss=subsInCity(c.id);
     const pts=ss.reduce((n,s)=>n+(s.points||[]).length,0);
@@ -1323,12 +1413,14 @@ function homeView(){
       <div class="card-stat">
         <span><b>${js.length}</b>jurisdictions</span>
         <span><b>${ss.length}</b>subs</span>
-        <span><b>${pts}</b>control</span>
+        <span><b>${(c.reqs||[]).length}</b>rules</span>
       </div></div>`;
   }).join('');
-  return `<div class="view-head"><div><div class="view-title">Cities</div>
-    <div class="view-sub">${DB.cities.length} filed · pick a city to see its counties and municipalities</div></div></div>
-    <div class="grid">${cards}</div>`;
+  const act=DB.subs.filter(x=>x.active).length;
+  return `<div class="view-head"><div><div class="view-title">The library</div>
+    <div class="view-sub">${DB.cities.length} counties · ${DB.jurs.length} jurisdictions ·
+      ${DB.subs.length} subdivisions, ${act} active${DB.seededAt?` · seeded ${esc(DB.seededAt)}`:''}</div></div></div>
+    <div class="grid">${scopeCards}${cards}</div>`;
 }
 
 /* ── a city: its counties / municipalities ── */
@@ -1356,6 +1448,8 @@ function cityView(c){
       <button class="btn" onclick="editCity(${q(c.id)})">edit city</button>
       <button class="btn btn-primary" onclick="editJur(null,${q(c.id)})">+ Jurisdiction</button></div>
     ${c.notes?`<div class="panel"><div class="panel-body"><div class="note-box">${esc(c.notes)}</div></div></div>`:''}
+    ${reqPanel(c.reqs||[],'Rules — everything in this county','city',c.id)}
+    ${docPanel(c.docs||[],'Documents','city',c.id)}
     ${js.length?`<div class="grid">${cards}</div>`
       :`<div class="grid"><div class="empty-hint">No county or municipality filed under ${esc(c.name)} yet.<br><br>
         <button class="btn btn-primary" onclick="editJur(null,${q(c.id)})">+ Add one</button></div></div>`}`;
@@ -1388,13 +1482,46 @@ function jurView(j){
         <button class="btn btn-primary" onclick="editSub(null,${q(j.id)})">+ Add one</button></div></div>`}`;
 }
 
+function globalView(){
+  return `<div class="view-head"><div><div class="view-title">Everywhere</div>
+      <div class="view-sub">Company baseline and state law. These reach every subdivision in the library,
+        underneath whatever the county, the city, the builder and the site add on top.</div></div></div>
+    ${reqPanel(DB.global.reqs,'Rules','global','global')}
+    ${docPanel(DB.global.docs,'Documents','global','global')}`;
+}
+function buildersView(){
+  const cards=DB.builders.slice().sort(byName).map(b=>{
+    const n=DB.subs.filter(s=>(s.builderIds||[]).includes(b.id)).length;
+    return `<div class="card" data-go="#/b/${b.id}">
+      <div class="card-title">${esc(b.name)}</div>
+      <div class="card-stat"><span><b>${b.reqs.length}</b>rules</span><span><b>${n}</b>subs</span></div></div>`;
+  }).join('');
+  return `<div class="view-head"><div><div class="view-title">Builders</div>
+      <div class="view-sub">A builder's rules follow their sites wherever they are. Anything here shows on
+        every subdivision they build.</div></div>
+      <span class="spacer"></span><button class="btn btn-primary" onclick="editBuilder()">+ Builder</button></div>
+    <div class="grid">${cards}</div>`;
+}
+function builderView(b){
+  const ss=DB.subs.filter(s=>(s.builderIds||[]).includes(b.id)).sort(byName);
+  return `<div class="view-head"><div><div class="view-title">${esc(b.name)}</div>
+      <div class="view-sub">${ss.length} subdivisions in the library</div></div>
+      <span class="spacer"></span><button class="btn" onclick="editBuilder(${q(b.id)})">edit</button></div>
+    ${reqPanel(b.reqs,'Rules on every site they build','builder',b.id)}
+    ${docPanel(b.docs||[],'Documents','builder',b.id)}
+    ${ss.length?`<div class="view-head" style="margin-top:18px"><div class="view-title" style="font-size:15px">Their subdivisions</div></div>
+      <div class="grid wide">${ss.map(subCard).join('')}</div>`:''}`;
+}
+
 function subCard(s){
   const f=effFlags(s);
   const filled=countIntel(s)>0;
   return `<div class="card${filled?'':' empty-intel'}" data-go="#/s/${s.id}">
     <span class="edit-dot" data-stop onclick="event.stopPropagation();editSub(${q(s.id)})">edit</span>
-    <div class="card-title">${esc(s.name)}</div>
-    ${(s.builders||[]).length?`<div class="card-meta">${esc(s.builders.join(' · '))}</div>`:''}
+    <div class="card-title">${esc(s.name)}
+      ${s.active?'<span class="tag live">active</span>':''}</div>
+    ${buildersOf(s).length?`<div class="card-meta">${esc(buildersOf(s).map(b=>b.name).join(' · '))}</div>`:''}
+    ${s.munCandidate?`<div class="card-meta" style="color:var(--blue)">may be inside ${esc(s.munCandidate)} — unverified</div>`:''}
     ${s.gate?`<div class="gate-row"><span class="gate-lbl">Gate</span>
         <span class="gate-code" data-stop data-copy="${esc(s.gate)}" data-copy-label="gate code" title="click to copy">${esc(s.gate)}</span></div>`:''}
     ${s.access?`<div class="warn-box">${esc(s.access)}</div>`:''}
@@ -1417,20 +1544,28 @@ function subView(s){
   const j=jur(s.jurId),c=j?city(j.cityId):null;
   const f=effFlags(s);
   const crs=effCrs(s);
-  const inhReqs=(j?.reqs||[]).map(r=>({...r,_from:j.name}));
+  const bs=buildersOf(s);
   const inhDocs=(j?.docs||[]).map(d=>({...d,_from:j.name}));
   const pts=(s.points||[]).slice().sort((a,b)=>(a.type===b.type?a.name.localeCompare(b.name):a.type==='BM'?-1:1));
 
   return `<div class="detail-head">
-    <div class="detail-title">${esc(s.name)}</div>
-    <div class="detail-where">${esc(c?c.name:'—')} › ${esc(j?j.name:'—')}</div>
+    <div class="detail-title">${esc(s.name)}
+      ${s.active?'<span class="tag live" title="a job was dispatched here since 2026-08-01">active</span>':''}</div>
+    <div class="detail-where">${esc(c?c.name:'—')} › ${esc(j?j.name:'—')}${
+      s.lastJob?` · last job ${esc(s.lastJob)}`:''}</div>
+    ${(s.aliases||[]).length?`<div class="view-sub" style="margin-top:2px">also called ${esc(s.aliases.join(', '))}</div>`:''}
+    ${s.munCandidate?`<div class="verify-box">Filed as unincorporated ${esc(c?c.name:'county')}, but the mailing
+      address says <b>${esc(s.munCandidate)}</b>. Nobody has checked which. If it is inside the city, its rules
+      apply on top of the county's — open <b>edit intel</b> and move it.</div>`:''}
     ${s.gate?`<div class="gate-row"><span class="gate-lbl">Gate</span>
       <span class="gate-code" data-copy="${esc(s.gate)}" data-copy-label="gate code" title="click to copy">${esc(s.gate)}</span></div>`:''}
     ${s.access?`<div class="warn-box">${esc(s.access)}</div>`:''}
-    ${(s.contactName||s.contactPhone||(s.builders||[]).length)?`<div class="contact-row">
+    ${(s.contactName||s.contactPhone||bs.length||(s.workTypes||[]).length)?`<div class="contact-row">
       ${s.contactName?`<div class="contact"><span class="lbl">Contact</span>${esc(s.contactName)}</div>`:''}
       ${s.contactPhone?`<div class="contact"><span class="lbl">Phone</span><a href="tel:${esc(s.contactPhone.replace(/[^\d+]/g,''))}">${esc(s.contactPhone)}</a></div>`:''}
-      ${(s.builders||[]).length?`<div class="contact"><span class="lbl">Builder${s.builders.length>1?'s':''}</span>${esc(s.builders.join(' · '))}</div>`:''}
+      ${bs.length?`<div class="contact"><span class="lbl">Builder${bs.length>1?'s':''}</span>${
+        bs.map(b=>`<a onclick="go('#/b/${b.id}')" style="cursor:pointer">${esc(b.name)}</a>`).join(' · ')}</div>`:''}
+      ${(s.workTypes||[]).length?`<div class="contact"><span class="lbl">Usual work</span>${esc(s.workTypes.join(', '))}</div>`:''}
     </div>`:''}
     ${(f.own.length||f.inherited.length)?`<div style="margin-top:11px">${flagRow(f.own,'lg')}${flagRow(f.inherited,'lg inherit')}</div>`:''}
     <div class="modal-actions" style="justify-content:flex-start;margin-top:13px">
@@ -1447,7 +1582,7 @@ function subView(s){
       <span class="spacer"></span><button class="btn btn-sm" data-stop onclick="editCrs(${q(s.id)})">edit</button></div>
     <div class="panel-body">${crsGrid(crs)}</div></div>
 
-  ${reqPanel([...(s.reqs||[]),...inhReqs],'Requirements','sub',s.id)}
+  ${reqStack(s)}
   ${docPanel([...(s.docs||[]),...inhDocs],'Documents to reference','sub',s.id)}
 
   <div class="panel">
@@ -1484,21 +1619,59 @@ function crsGrid(crs){
   return `<div class="crs-grid">${cells}</div>`;
 }
 
-function reqPanel(reqs,title,owner,ownerId){
-  const rows=reqs.map(r=>`<div class="req">
-      <span class="req-sev ${esc(r.sev||'')}"></span>
-      <div class="req-body">
-        <div class="req-title">${esc(r.title)}
-          ${r.sev&&r.sev!=='info'?`<span class="tag ${esc(r.sev)}">${esc(r.sev)}</span>`:''}
-          ${r._from?`<span class="tag src">${esc(r._from)}</span>`:''}</div>
-        ${r.detail?`<div class="req-detail">${esc(r.detail)}</div>`:''}
+/* One rule, with where it came from. The confidence badge matters more than
+   it looks: OBSERVED means somebody learned it the hard way and we have not
+   found the document yet, so it is the one you can still push back on. */
+function reqRow(r,editable){
+  const work=(r.appliesTo||[]).map(w=>`<span class="tag work">${esc(w)}</span>`).join('');
+  return `<div class="req">
+    <span class="req-sev ${esc(r.sev||(r.conf==='observed'?'required':''))}"></span>
+    <div class="req-body">
+      <div class="req-title">${esc(r.title)}</div>
+      <div class="pillrow" style="margin-top:4px">
+        ${r.cat?`<span class="tag cat">${esc(RULE_CATS[r.cat]||r.cat)}</span>`:''}
+        ${r.conf==='observed'?'<span class="tag obs" title="learned in the field, not yet sourced">observed</span>'
+          :r.conf==='confirmed'?'<span class="tag conf" title="documented in a code, policy or permit record">confirmed</span>':''}
+        ${r.sev&&r.sev!=='info'?`<span class="tag ${esc(r.sev)}">${esc(r.sev)}</span>`:''}
+        ${work}
       </div>
-      ${r._from?'':`<span class="req-act">
-        <button class="btn btn-sm" onclick="editReq(${q(r.id)},'${owner}',${q(ownerId)})">edit</button></span>`}
-    </div>`).join('');
+      ${r.detail?`<div class="req-detail">${esc(r.detail)}</div>`:''}
+      ${r.source?`<div class="req-src">${r.sourceUrl
+        ? `<a href="${esc(r.sourceUrl)}" target="_blank" rel="noopener">${esc(r.source)} ↗</a>`
+        : esc(r.source)}</div>`:''}
+    </div>
+    ${editable?`<span class="req-act">
+      <button class="btn btn-sm" onclick="editReq(${q(r.id)},'${r._owner||'sub'}',${q(r._ownerId||'')})">edit</button></span>`:''}
+  </div>`;
+}
+function reqPanel(reqs,title,owner,ownerId){
+  const rows=reqs.map(r=>reqRow({...r,_owner:r._owner||owner,_ownerId:r._ownerId||ownerId},true)).join('');
   return `<div class="panel"><div class="panel-head"><h3>${title}</h3><span class="n">${reqs.length}</span>
       <span class="spacer"></span><button class="btn btn-sm" onclick="editReq(null,'${owner}',${q(ownerId)})">+ add</button></div>
     <div class="panel-body flush">${rows||`<div class="empty-line">Nothing recorded yet.</div>`}</div></div>`;
+}
+/* The whole resolved stack on a sub, grouped by where each rule came from. */
+function reqStack(s){
+  const all=effReqs(s);
+  if(!all.length)return `<div class="panel"><div class="panel-head"><h3>Rules that apply here</h3>
+      <span class="spacer"></span><button class="btn btn-sm" onclick="editReq(null,'sub',${q(s.id)})">+ add</button></div>
+    <div class="panel-body flush"><div class="empty-line">Nothing recorded yet.</div></div></div>`;
+  let html='';
+  for(const scope of SCOPE_ORDER){
+    const rs=all.filter(r=>r._scope===scope);
+    if(!rs.length)continue;
+    const label=scope==='subdivision'?'This subdivision'
+      :scope==='everywhere'?'Everywhere — company and state'
+      :`${rs[0]._from} · ${scope}`;
+    // an inherited rule is edited where it lives, not here — go to its own page
+    html+=`<div class="scope-head">${esc(label)} · ${rs.length}</div>`
+        +rs.map(r=>reqRow(r,r._scope==='subdivision')).join('');
+  }
+  const obs=all.filter(r=>r.conf==='observed').length;
+  return `<div class="panel"><div class="panel-head"><h3>Rules that apply here</h3>
+      <span class="n">${all.length} from ${new Set(all.map(r=>r._scope)).size} levels${obs?` · ${obs} observed`:''}</span>
+      <span class="spacer"></span><button class="btn btn-sm" onclick="editReq(null,'sub',${q(s.id)})">+ add</button></div>
+    <div class="panel-body flush">${html}</div></div>`;
 }
 
 function docPanel(docs,title,owner,ownerId){
@@ -1849,10 +2022,22 @@ function editSub(id,jurId){
     <div class="subhead">Notes</div>
     <textarea id="fNotes" placeholder="lot numbering quirks, parking, where it turns to mud…">${esc(s?.notes||'')}</textarea>
     ${actions(s?`delSub('${s.id}')`:'','saveSub()')}`,'fName');
-  builderRows=(s?.builders||[]).slice();
+  builderRows=buildersOf(s||{}).map(b=>b.name);
   renderBuilders();
 }
 let builderRows=[];
+/* A builder typed on a sub becomes a real builder record, so anything learned
+   about them later reaches every site they build. */
+function linkBuilders(names){
+  const out=[];
+  for(const raw of names){
+    const nm=raw.trim(); if(!nm)continue;
+    let b=DB.builders.find(x=>normKey(x.name)===normKey(nm));
+    if(!b){b={id:uid(),name:nm,reqs:[],docs:[]};DB.builders.push(b);}
+    if(!out.includes(b.id))out.push(b.id);
+  }
+  return out;
+}
 function renderBuilders(){
   const box=el('builderRows');
   if(!box)return;
@@ -1882,7 +2067,7 @@ function saveSub(){
   const data={
     name,jurId:jid,lat:num(val('fLat')),lon:num(val('fLon')),
     gate:val('fGate'),contactName:val('fContactName'),contactPhone:val('fContactPhone'),
-    builders:builderRows.map(b=>b.trim()).filter(Boolean),access:val('fAccess'),
+    builderIds:linkBuilders(builderRows),access:val('fAccess'),
     flags:pickedFlags(),benchmark:val('fBenchmark'),notes:val('fNotes'),updatedAt:Date.now()
   };
   if(editing)Object.assign(editing,data);
@@ -1901,6 +2086,31 @@ function delSub(id){
   save();closeModal();go('#/j/'+jid);
 }
 
+function editBuilder(id){
+  const b=id?builder(id):null;editing=b;
+  openModal(`<h2>${b?'Edit builder':'New builder'}</h2>
+    <div class="sub-meta">Rules here reach every subdivision this builder is on, wherever it is.</div>
+    <label>Name</label>
+    <input type="text" id="fName" value="${esc(b?.name||'')}" placeholder="e.g. Taylor Morrison">
+    <label>Notes</label>
+    <textarea id="fNotes" placeholder="who to call, how they run their sites…">${esc(b?.notes||'')}</textarea>
+    ${actions(b?`delBuilder('${b.id}')`:'','saveBuilder()')}`,'fName');
+}
+function saveBuilder(){
+  const name=val('fName');
+  if(!name)return toast('name required',1);
+  if(editing)Object.assign(editing,{name,notes:val('fNotes')});
+  else DB.builders.push({id:uid(),name,notes:val('fNotes'),reqs:[],docs:[]});
+  save();closeModal();render();
+}
+function delBuilder(id){
+  const n=DB.subs.filter(s=>(s.builderIds||[]).includes(id)).length;
+  if(!confirm(`Delete "${builder(id).name}"? ${n} subdivision${n===1?'':'s'} will lose the link and its rules.`))return;
+  DB.builders=DB.builders.filter(b=>b.id!==id);
+  for(const s of DB.subs)s.builderIds=(s.builderIds||[]).filter(x=>x!==id);
+  save();closeModal();go('#/b');
+}
+
 /* ── per-sub coordinate system override ── */
 function editCrs(id){
   const s=sub(id);editing=s;
@@ -1917,7 +2127,8 @@ function saveCrs(){
 }
 
 /* ── requirements & documents hang off either a jurisdiction or a sub ── */
-const ownerOf=(kind,id)=>kind==='jur'?jur(id):sub(id);
+const ownerOf=(kind,id)=>kind==='jur'?jur(id):kind==='city'?city(id)
+  :kind==='builder'?builder(id):kind==='global'?DB.global:sub(id);
 let ownerCtx=null;
 
 function editReq(reqId,kind,ownerId){
@@ -1927,17 +2138,38 @@ function editReq(reqId,kind,ownerId){
   const r=reqId?(o.reqs||[]).find(x=>x.id===reqId):null;
   editing=r;
   openModal(`<h2>${r?'Edit requirement':'New requirement'}</h2>
-    <div class="sub-meta">On ${esc(o.name)}${kind==='jur'?' — inherited by every sub under it':''}</div>
+    <div class="sub-meta">On ${esc(o.name||'Everywhere')}${
+      kind==='jur'?' — reaches every sub in this municipality'
+      :kind==='city'?' — reaches every sub in this county'
+      :kind==='builder'?' — reaches every sub this builder is on'
+      :kind==='global'?' — reaches every sub in the library':''}</div>
     <label>Requirement</label>
     <input type="text" id="fTitle" value="${esc(r?.title||'')}" placeholder="e.g. 48-hour notice to the county inspector">
+    <div class="cols">
+      <div><label>Kind</label><select id="fCat">
+        ${Object.entries(RULE_CATS).map(([k,v])=>`<option value="${k}"${r?.cat===k?' selected':''}>${v}</option>`).join('')}
+      </select></div>
+      <div><label>How sure are we</label><select id="fConf">
+        <option value="confirmed"${r?.conf!=='observed'?' selected':''}>Confirmed — it is in a document</option>
+        <option value="observed"${r?.conf==='observed'?' selected':''}>Observed — learned in the field</option>
+      </select></div>
+    </div>
     <label>Level</label>
     <select id="fSev">
       <option value="info"${r?.sev==='info'||!r?' selected':''}>Good to know</option>
       <option value="required"${r?.sev==='required'?' selected':''}>Required</option>
       <option value="critical"${r?.sev==='critical'?' selected':''}>Critical — will stop the job</option>
     </select>
+    <label>Applies to</label>
+    <input type="text" id="fApplies" value="${esc((r?.appliesTo||[]).join(', '))}" placeholder="form, slab, final — blank means every job">
     <label>Detail</label>
     <textarea id="fDetail" placeholder="who, what form, how long it takes, what happens if you skip it…">${esc(r?.detail||'')}</textarea>
+    <div class="subhead">Where it comes from</div>
+    <input type="text" id="fSource" value="${esc(r?.source||'')}" placeholder="ordinance, policy, permit record, or who told you">
+    <label>Link</label>
+    <input type="url" id="fSourceUrl" value="${esc(r?.sourceUrl||'')}" placeholder="https://…">
+    <div class="hint">A rule with a source survives an argument with an inspector. One without is worth
+      writing down anyway — mark it observed and chase the document later.</div>
     ${actions(r?`delReq('${r.id}')`:'','saveReq()')}`,'fTitle');
 }
 function saveReq(){
@@ -1945,7 +2177,10 @@ function saveReq(){
   if(!title)return toast('requirement text required',1);
   const o=ownerOf(ownerCtx.kind,ownerCtx.id);
   o.reqs||=[];
-  const data={title,sev:el('fSev').value,detail:val('fDetail')};
+  const data={title,sev:el('fSev').value,detail:val('fDetail'),
+    cat:el('fCat').value,conf:el('fConf').value,
+    appliesTo:val('fApplies').split(/\s*,\s*/).filter(Boolean),
+    source:val('fSource'),sourceUrl:val('fSourceUrl')};
   if(editing)Object.assign(editing,data);
   else o.reqs.push({id:uid(),...data});
   o.updatedAt=Date.now();
@@ -2090,6 +2325,20 @@ function searchView(){
   ];
   const G=Object.fromEntries(groups.map(g=>[g.key,g]));
 
+  for(const r of DB.global.reqs)
+    if(matches([r.title,r.detail,r.source,r.cat].join(' '),terms))
+      G.reqs.rows.push({name:r.title,path:'Everywhere — applies to every job',go:'#/g'});
+  for(const b of DB.builders){
+    if(matches([b.name,b.notes].join(' '),terms))
+      G.jurs.rows.push({name:b.name,path:`builder · ${b.reqs.length} rules`,go:`#/b/${b.id}`,ico:'🏗️'});
+    for(const r of b.reqs)
+      if(matches([r.title,r.detail,r.source,r.cat].join(' '),terms))
+        G.reqs.rows.push({name:r.title,path:`${b.name} — every site they build`,go:`#/b/${b.id}`});
+  }
+  for(const c of DB.cities)
+    for(const r of (c.reqs||[]))
+      if(matches([r.title,r.detail,r.source,r.cat].join(' '),terms))
+        G.reqs.rows.push({name:r.title,path:`${c.name} — whole county`,go:`#/c/${c.id}`});
   for(const c of DB.cities)
     if(matches([c.name,c.state,c.notes].join(' '),terms))
       G.cities.rows.push({name:c.name,path:`${jursIn(c.id).length} jurisdictions`,go:`#/c/${c.id}`});
@@ -2100,7 +2349,7 @@ function searchView(){
                ...flagList(j.flags).map(f=>FLAG[f.k].l+' '+f.note)].join(' ');
     if(matches(hay,terms))G.jurs.rows.push({name:j.name,path:c?c.name:'—',go:`#/j/${j.id}`});
     for(const r of (j.reqs||[]))
-      if(matches([r.title,r.detail].join(' '),terms))
+      if(matches([r.title,r.detail,r.source,r.cat].join(' '),terms))
         G.reqs.rows.push({name:r.title,path:`${j.name} — applies to all subs`,go:`#/j/${j.id}`});
     for(const d of (j.docs||[]))
       if(matches([d.title,d.url].join(' '),terms))
@@ -2108,7 +2357,8 @@ function searchView(){
   }
 
   for(const s of DB.subs){
-    const hay=[s.name,s.gate,s.contactName,s.contactPhone,(s.builders||[]).join(' '),
+    const hay=[s.name,(s.aliases||[]).join(' '),s.gate,s.contactName,s.contactPhone,
+               buildersOf(s).map(b=>b.name).join(' '),(s.workTypes||[]).join(' '),s.munCandidate,
                s.access,s.benchmark,s.notes,pathOf(s),
                ...flagList(s.flags).map(f=>FLAG[f.k].l+' '+f.note)].join(' ');
     if(matches(hay,terms))
@@ -2175,7 +2425,7 @@ function openDataModal(){
     <div class="hint">Import <b>merges</b> — cities, jurisdictions and subs with the same name are updated in place, new ones are added. Nothing is deleted.</div>
     <div class="subhead">Danger</div>
     <button class="btn btn-danger" onclick="wipe()">erase the whole library</button>
-    ${DB.cities.length?'':`<button class="btn" onclick="loadDemo()">load example data</button>`}
+    ${DB.cities.length?'':`<button class="btn" onclick="seedLibrary();save();render()">restore the seeded library</button>`}
     <div class="modal-actions"><button class="btn" onclick="closeModal()">close</button></div>`);
 }
 async function exportJson(){
@@ -2224,11 +2474,32 @@ function importJson(input){
 }
 /* merge by name so two people can keep parallel copies and combine them */
 function mergeIn(d){
+  // the two scopes that are not places
+  DB.global||={reqs:[],docs:[]};
+  if(d.global){
+    DB.global.reqs=mergeList(DB.global.reqs,d.global.reqs,'title');
+    DB.global.docs=mergeList(DB.global.docs,d.global.docs,'title');
+  }
+  const builderIdMap={};
+  for(const b of (d.builders||[])){
+    let ex=DB.builders.find(x=>normKey(x.name)===normKey(b.name));
+    if(ex){
+      ex.reqs=mergeList(ex.reqs,b.reqs,'title');
+      ex.docs=mergeList(ex.docs||[],b.docs,'title');
+      ex.notes=ex.notes||b.notes;
+    }else{ex={...b,id:uid(),reqs:b.reqs||[],docs:b.docs||[]};DB.builders.push(ex);}
+    builderIdMap[b.id]=ex.id;
+  }
+
   const cityBy=n=>DB.cities.find(c=>normKey(c.name)===normKey(n));
   for(const c of (d.cities||[])){
     const ex=cityBy(c.name);
-    if(ex)Object.assign(ex,{state:c.state||ex.state,notes:c.notes||ex.notes});
-    else DB.cities.push({...c,id:c.id||uid()});
+    if(ex){
+      Object.assign(ex,{state:c.state||ex.state,notes:c.notes||ex.notes});
+      ex.reqs=mergeList(ex.reqs||[],c.reqs,'title');
+      ex.docs=mergeList(ex.docs||[],c.docs,'title');
+    }
+    else DB.cities.push({...c,id:c.id||uid(),reqs:c.reqs||[],docs:c.docs||[]});
   }
   const cityIdMap={};
   for(const c of (d.cities||[]))cityIdMap[c.id]=cityBy(c.name)?.id;
@@ -2257,11 +2528,15 @@ function mergeIn(d){
       if(s.lat!=null){ex.lat=s.lat;ex.lon=s.lon;}
       ex.crs={...ex.crs,...s.crs};
       ex.flags={...ex.flags,...normFlags(s.flags)};
-      ex.builders=[...new Set([...(ex.builders||[]),...(s.builders||[])])];
+      ex.builderIds=[...new Set([...(ex.builderIds||[]),
+        ...(s.builderIds||[]).map(b=>builderIdMap[b]||b)])];
+      for(const k of ['aliases','workTypes','lastJob','active','munCandidate'])
+        if(s[k]!==undefined&&ex[k]===undefined)ex[k]=s[k];
       ex.reqs=mergeList(ex.reqs,s.reqs,'title');
       ex.docs=mergeList(ex.docs,s.docs,'title');
       ex.points=mergeList(ex.points,s.points,'name');
-    }else DB.subs.push({...s,id:uid(),jurId:jid});
+    }else DB.subs.push({...s,id:uid(),jurId:jid,
+      builderIds:(s.builderIds||[]).map(b=>builderIdMap[b]||b)});
   }
 }
 function mergeList(a,b,key){
@@ -2276,84 +2551,9 @@ function mergeList(a,b,key){
 function wipe(){
   if(!confirm('Erase every city, jurisdiction, subdivision and control point on this machine? Export first if you want it back.'))return;
   if(!confirm('Really erase it all? There is no undo.'))return;
-  DB={version:3,cities:[],jurs:[],subs:[]};
+  DB={version:4,global:{reqs:[],docs:[]},builders:[],cities:[],jurs:[],subs:[]};
   route={v:'home'};
   save();closeModal();go('#/');render();
-}
-
-/* ══════════════════ example data ══════════════════
-   A worked example so the shape is obvious on first run. Everything in
-   it is made up — erase it once the real library starts.
-   ═══════════════════════════════════════════════ */
-function loadDemo(){
-  if(DB.cities.length&&!confirm('Add the example city alongside what you already have?'))return;
-  const c={id:uid(),name:'Orlando',state:'FL',notes:'Example data — erase it when the real library starts.'};
-  const orange={id:uid(),cityId:c.id,name:'Orange County',kind:'county',
-    crs:{system:'Florida East 0901'},
-    flags:{ppe:'hard hat and vest inside the fence, no exceptions'},
-    reqs:[
-      {id:uid(),title:'ROW permit before any work in county right of way',sev:'critical',
-       detail:'Permits office, 10 business days. The permit number goes on the field notes.'},
-      {id:uid(),title:'48-hour notice to the county inspector',sev:'required',
-       detail:'Email the inspector of record. No notice, no inspection, and the pour gets held.'},
-      {id:uid(),title:'Tie every job to two county benchmarks',sev:'info',
-       detail:'One is a check, not a tie. The county rejects single-BM vertical.'}
-    ],
-    docs:[
-      {id:uid(),title:'Orange County construction standards',kind:'spec',url:'https://example.org/standards.pdf'},
-      {id:uid(),title:'ROW permit application',kind:'permit',url:'https://example.org/row-permit'},
-      {id:uid(),title:'County benchmark index',kind:'bm',url:'https://example.org/bm-index'}
-    ],
-    notes:'Plan check runs two weeks in the spring. Submit early.'};
-  const apopka={id:uid(),cityId:c.id,name:'Apopka',kind:'city',
-    crs:{system:'Florida East 0901'},
-    flags:{hours:'7am–6pm weekdays, no Sunday work'},
-    reqs:[{id:uid(),title:'Tree survey required with any plat',sev:'required',
-      detail:'Everything 6" DBH and up inside the limits, species and size called out.'}],
-    docs:[{id:uid(),title:'Apopka subdivision ordinance',kind:'spec',url:'https://example.org/apopka-ordinance'}],
-    notes:''};
-  const subs=[
-    {id:uid(),jurId:orange.id,name:'Wekiva Reserve — Phase 3',lat:28.7051,lon:-81.5108,
-     gate:'#4471',contactName:'Ray Alvarez',contactPhone:'407-555-0142',
-     builders:['Pulte','M/I Homes'],
-     access:'Call the contact before entering — no entry before 7am',
-     flags:{gate:'guard shack — crew names the day before',
-            signal:'no service past the back half, download before you go in'},
-     crs:{},
-     benchmark:'County BM on the box culvert at the entrance is the hold. TBM-1 is the working BM at the model.',
-     notes:'Lot numbering runs backward off the main entry. Back half is impassable for a day after rain.',
-     reqs:[{id:uid(),title:'Guard shack needs the crew names the day before',sev:'required',
-            detail:'Text the contact the list. Walk-ins get turned around.'}],
-     docs:[{id:uid(),title:'Phase 3 recorded plat',kind:'plat',url:'https://example.org/wekiva-3-plat.pdf'},
-           {id:uid(),title:'Phase 3 paving plans',kind:'plan',url:'https://example.org/wekiva-3-plans.pdf'}],
-     points:[
-       {id:uid(),type:'BM',name:'OC BM 4327',lat:28.7044,lon:-81.5129,elev:'112.44',elevDatum:'NAVD88 GEOID18',
-        desig:'OC-4327',setBy:'Orange County',mon:'brass disk in culvert headwall',
-        desc:'Top of the box culvert headwall, N side of the entrance drive.',
-        docs:[{id:uid(),title:'OC 4327 datasheet',kind:'bm',url:'https://example.org/oc4327.pdf'}]},
-       {id:uid(),type:'TBM',name:'TBM-1',lat:28.7053,lon:-81.5102,elev:'114.12',elevDatum:'NAVD88 GEOID18',
-        setBy:'Field crew 3',setOn:'2026-08-14',mon:'5/8" iron rod w/ orange cap',
-        desc:'NE corner of the model home island, 3 ft S of the hydrant.',
-        docs:[{id:uid(),title:'TBM-1 card + photo',kind:'bm',url:'https://example.org/tbm1.pdf'}]},
-       {id:uid(),type:'TBM',name:'TBM-2',lat:28.7065,lon:-81.5086,elev:'113.87',elevDatum:'NAVD88 GEOID18',
-        setBy:'Field crew 3',setOn:'2026-08-14',mon:'mag nail in curb',
-        desc:'Back of curb at the Lot 41 driveway return.',docs:[]}
-     ],updatedAt:Date.now()},
-    {id:uid(),jurId:apopka.id,name:'Sandpiper Landing — Phase 2',lat:28.7217,lon:-81.5055,
-     gate:'',contactName:'Dana Whitfield',contactPhone:'407-555-0119',
-     builders:['Dream Finders','Meritage'],
-     access:'',
-     flags:{flood:'Zone AE along the west boundary — elevation certs on those lots'},
-     crs:{system:'Florida East 0901 — site calibration on file'},
-     benchmark:'',notes:'Park the trucks at the amenity lot; the entry loop tickets after 8am.',
-     reqs:[],docs:[],
-     points:[{id:uid(),type:'TBM',name:'TBM-A',lat:28.7214,lon:-81.5068,elev:'126.03',elevDatum:'NAVD88 GEOID18',
-        setBy:'Field crew 1',setOn:'2026-06-02',mon:'5/8" iron rod w/ cap',
-        desc:'S side of the amenity lot entrance.',docs:[]}],updatedAt:Date.now()}
-  ];
-  DB.cities.push(c);DB.jurs.push(orange,apopka);DB.subs.push(...subs);
-  save();closeModal();go('#/c/'+c.id);render();
-  toast('example data loaded');
 }
 
 /* ══════════════════ chrome wiring ══════════════════ */
@@ -2430,7 +2630,6 @@ if('serviceWorker' in navigator&&window.isSecureContext){
 }
 
 load();
-if(/(^|[?&])demo\b/.test(location.search)&&!DB.cities.length)loadDemo();
 readRoute();
 </script>
 </body>

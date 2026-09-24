@@ -1,6 +1,8 @@
 # Sub Intel — purpose & how it works
 
 `index.html` · one self-contained file · storage key `subIntelDB`
+Ships with the library inside it: 20 counties, 51 jurisdictions, 10 builders,
+104 subdivisions and 44 sourced rules.
 https://rmymcy.github.io/subintel/
 
 ---
@@ -51,6 +53,34 @@ it in the truck:
 | Documents | links, each with a kind icon — spec, plat, benchmark datasheet, permit, plan set |
 | Control | the map, then the list |
 | Notes | benchmark notes and general notes |
+
+## Rules, and where they come from
+
+A subdivision does not have "requirements" so much as inherit them. Rules resolve
+broadest to narrowest and a narrower scope wins on conflict:
+
+```
+everywhere  →  county  →  municipality  →  builder  →  subdivision
+```
+
+**Everywhere** is the company baseline and state law — FAC 5J-17 monumentation,
+Fla. Stat. 177 plat monuments, 472.029 right of entry, the 811 locate exemption.
+**Builder** is the scope people forget: a builder's rules follow their sites
+across every county they work in.
+
+Every rule carries what kind it is (tolerance, monument, inspection, PPE, hours,
+benchmark, submittal, access), what work it applies to, where it came from, and
+how sure we are:
+
+- **confirmed** — it is written down in a code, a policy, or a permit record, and
+  the source is linked. You can hold an inspector to it.
+- **observed** — learned in the field, not yet sourced. Worth knowing and worth
+  arguing with. Orange County's 0.2 ft grade tolerance is the example: enforced
+  strictly, not in any published county document.
+
+The sub page shows the whole resolved stack grouped by where each rule came
+from, so it is obvious whether something is state law or one inspector's habit.
+An inherited rule is edited where it lives, not on the sub.
 
 ## Requirement icons
 
@@ -147,6 +177,28 @@ Consequences of that shape, on purpose:
 - **Documents are links, never uploads.** The share drive stays the one copy of
   the file, the browser store stays small, and an export is a small JSON.
   A network path works: `file:///V:/Standards/spec.pdf`.
+
+## The seeded library
+
+The library is compiled into the file, so opening the link is the whole install
+— there is nothing to import and no empty state to explain. It seeds only into
+an empty store, so it never overwrites anything somebody typed, and `⇅ → restore
+the seeded library` puts it back if the store is wiped.
+
+Two things are unfinished in the data and the app says so rather than hiding it:
+
+- **No subdivision has a verified municipality.** The point-in-polygon step has
+  not run, so all 104 landed in a per-county holding jurisdiction. The 52 with a
+  mailing-address candidate say which city they might be in, on the card and on
+  the page. Until that is checked, city rules are not reaching subs that should
+  have them.
+- **Two records could not be placed at all** — one with no coordinates, one
+  geocoded to Nashville. They sit under "Needs filing" instead of being dropped.
+
+**This only stays publishable while the data stays non-sensitive.** There are no
+gate codes or superintendent numbers in the seed. The day those go in, a file
+served from a public URL is the wrong place for them and the library has to move
+behind a login.
 
 ## Sharing it
 

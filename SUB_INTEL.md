@@ -185,23 +185,34 @@ The library is compiled into the file, so opening the link is the whole install
 an empty store, so it never overwrites anything somebody typed, and `⇅ → restore
 the seeded library` puts it back if the store is wiped.
 
-Jurisdictions were assigned by point-in-polygon against **Census TIGER 2019
-place boundaries**, not by mailing address. Of 104 subdivisions, 40 sit inside a
-city and 48 are cleanly unincorporated. The mailing address had been wrong or
-misleading on 19 of the 52 it guessed at — Wellen Park is North Port, not Venice;
-Woodland Ranch Estates is Dundee, not Lake Wales; and sixteen that carried a city
-address are outside every 2019 boundary.
+Jurisdictions are assigned by point-in-polygon against **FGDL city limits
+derived from 2021 Florida parcel tax-code boundaries** — 411 municipalities,
+built from who actually pays city taxes, which is a better proxy for "who has
+jurisdiction" than a Census cartographic line. The layer is Albers metres, so
+coordinates are reprojected before testing; the projection was checked against
+six known city-hall points before anything was trusted to it. Georgia's five
+subs fall back to Census TIGER 2019, which the Florida layer does not cover.
 
-**TIGER is seven years old and Florida annexes constantly**, which is the one
-weakness of the method and the app says so. Edgewater at Cross Prairie proves it:
-the 2019 polygon puts it outside St. Cloud, but the city issued permit
-B26-00002282 and sent an inspector there in September 2026. A permit beats a
-stale boundary, so that one is filed under St. Cloud on the permit record and
-every sub carries the basis for its own assignment.
+Of 104 subdivisions, **50 sit inside a city and 45 are unincorporated**. No
+point landed in two cities, and every hit agrees with the county already
+recorded.
 
-The other 16 in that position are marked **disputed** rather than silently
-resolved, and the landing page lists them as a work queue. One permit lookup
-each settles it — and settles whether the city's rules reach the sub.
+The mailing address, which is what the seed had been guessing from, was wrong or
+misleading on more than a third of what it covered. Wellen Park is North Port,
+not Venice. Hamilton Bluff is Lake Hamilton, not Haines City. Two municipalities
+had to be added because subs landed in cities we had no record for.
+
+**Boundaries go stale and Florida annexes constantly.** Edgewater at Cross
+Prairie is the proof and the vindication: Census 2019 put it outside St. Cloud,
+the 2021 tax boundary puts it inside, and the city issued permit B26-00002282 and
+inspected the site in September 2026. Three sources, two of them agreeing against
+the oldest. Every sub carries the basis for its own assignment so this is
+auditable rather than asserted.
+
+**8 remain disputed** — a mailing address claims a city, the 2021 boundary says
+otherwise. They are flagged rather than resolved, and the landing page lists them
+as a work queue sorted by how much work rides on them. One permit lookup each
+settles it, and settles whether the city's rules reach the sub.
 
 Two records still cannot be placed at all: one with no coordinates, one geocoded
 to Nashville. They sit under "Needs filing" instead of being dropped.

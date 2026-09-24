@@ -185,15 +185,26 @@ The library is compiled into the file, so opening the link is the whole install
 an empty store, so it never overwrites anything somebody typed, and `⇅ → restore
 the seeded library` puts it back if the store is wiped.
 
-Two things are unfinished in the data and the app says so rather than hiding it:
+Jurisdictions were assigned by point-in-polygon against **Census TIGER 2019
+place boundaries**, not by mailing address. Of 104 subdivisions, 40 sit inside a
+city and 48 are cleanly unincorporated. The mailing address had been wrong or
+misleading on 19 of the 52 it guessed at — Wellen Park is North Port, not Venice;
+Woodland Ranch Estates is Dundee, not Lake Wales; and sixteen that carried a city
+address are outside every 2019 boundary.
 
-- **No subdivision has a verified municipality.** The point-in-polygon step has
-  not run, so all 104 landed in a per-county holding jurisdiction. The 52 with a
-  mailing-address candidate say which city they might be in, on the card and on
-  the page. Until that is checked, city rules are not reaching subs that should
-  have them.
-- **Two records could not be placed at all** — one with no coordinates, one
-  geocoded to Nashville. They sit under "Needs filing" instead of being dropped.
+**TIGER is seven years old and Florida annexes constantly**, which is the one
+weakness of the method and the app says so. Edgewater at Cross Prairie proves it:
+the 2019 polygon puts it outside St. Cloud, but the city issued permit
+B26-00002282 and sent an inspector there in September 2026. A permit beats a
+stale boundary, so that one is filed under St. Cloud on the permit record and
+every sub carries the basis for its own assignment.
+
+The other 16 in that position are marked **disputed** rather than silently
+resolved, and the landing page lists them as a work queue. One permit lookup
+each settles it — and settles whether the city's rules reach the sub.
+
+Two records still cannot be placed at all: one with no coordinates, one geocoded
+to Nashville. They sit under "Needs filing" instead of being dropped.
 
 **This only stays publishable while the data stays non-sensitive.** There are no
 gate codes or superintendent numbers in the seed. The day those go in, a file

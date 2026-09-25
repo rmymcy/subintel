@@ -82,6 +82,13 @@ The sub page shows the whole resolved stack grouped by where each rule came
 from, so it is obvious whether something is state law or one inspector's habit.
 An inherited rule is edited where it lives, not on the sub.
 
+**Every section folds.** Click a scope heading to shut that group, or a panel
+header to shut the panel. With nine state-and-company rules sitting on top, the
+site-specific ones get pushed off a phone screen — shut "Everywhere" once and it
+stays shut on all 104 subdivisions and across reloads. The choice is keyed by
+what the section is rather than which sub you were on, and it lives in the
+browser as a preference, not in the library.
+
 ## Requirement icons
 
 Five, deliberately — the ones that change what a crew does when they pull up:

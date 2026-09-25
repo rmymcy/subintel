@@ -868,7 +868,17 @@ main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
 .req-src a{color:var(--blue);font-weight:600;text-decoration:none}
 .req-src a:hover{text-decoration:underline}
 .scope-head{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);
-  padding:8px 13px 3px;background:var(--bg);border-bottom:1px solid var(--border-soft)}
+  padding:8px 13px;background:var(--bg);border-bottom:1px solid var(--border-soft);
+  cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none}
+.scope-head:hover{color:var(--text)}
+.scope-group.shut .scope-body{display:none}
+.chev{display:inline-block;font-size:9px;line-height:1;color:var(--faint);transition:transform .12s;flex-shrink:0}
+.shut>.panel-head .chev,.scope-group.shut .chev{transform:rotate(-90deg)}
+.panel>.panel-head{cursor:pointer;user-select:none}
+.panel>.panel-head:hover h3{color:var(--text)}
+.panel.shut>.panel-body{display:none}
+.panel.shut>.map-bar,.panel.shut>.map-wrap{display:none}
+.panel.shut>div:not(.panel-head){display:none}
 .verify-box{margin-top:8px;background:var(--blue-wash);border:1px solid var(--blue-soft);border-radius:var(--radius-sm);
   padding:7px 10px;font-size:12px;color:var(--blue)}
 .req-act{display:flex;gap:4px;opacity:0;flex-shrink:0}
@@ -1423,7 +1433,46 @@ function renderCrumbs(){
   }
   c.innerHTML=parts.join('');
 }
+/* Sections remember whether you shut them, keyed by what they are rather than
+   which sub you were on — so shutting "Everywhere" once shuts it on all 104.
+   Kept out of the library itself: this is a per-browser preference, not data. */
+const FOLD_KEY='subIntelFold';
+let FOLD={};
+try{FOLD=JSON.parse(localStorage.getItem(FOLD_KEY)||'{}');}catch(e){}
+const saveFold=()=>{try{localStorage.setItem(FOLD_KEY,JSON.stringify(FOLD));}catch(e){}};
+function setFold(key,node,shut){
+  node.classList.toggle('shut',shut);
+  if(shut)FOLD[key]=1; else delete FOLD[key];
+  saveFold();
+}
+function wireFolds(){
+  for(const head of document.querySelectorAll('.panel > .panel-head')){
+    const h3=head.querySelector('h3');
+    if(!h3)continue;
+    const panel=head.parentElement;
+    const key='panel:'+normKey(h3.textContent);
+    if(!head.querySelector('.chev')){
+      const c=document.createElement('span');
+      c.className='chev';c.textContent='▾';
+      head.insertBefore(c,head.firstChild);
+    }
+    panel.classList.toggle('shut',!!FOLD[key]);
+    head.addEventListener('click',e=>{
+      // the buttons living in a panel header are not a fold gesture
+      if(e.target.closest('button,a,select,input,textarea'))return;
+      setFold(key,panel,!panel.classList.contains('shut'));
+    });
+  }
+  for(const group of document.querySelectorAll('.scope-group')){
+    const key='scope:'+group.dataset.scope;
+    group.classList.toggle('shut',!!FOLD[key]);
+    group.querySelector('.scope-head').addEventListener('click',()=>
+      setFold(key,group,!group.classList.contains('shut')));
+  }
+}
+
 function wireCards(){
+  wireFolds();
   document.querySelectorAll('[data-go]').forEach(n=>n.addEventListener('click',e=>{
     if(e.target.closest('[data-stop]'))return;
     go(n.dataset.go);
@@ -1736,8 +1785,10 @@ function reqStack(s){
       :scope==='everywhere'?'Everywhere — company and state'
       :`${rs[0]._from} · ${scope}`;
     // an inherited rule is edited where it lives, not here — go to its own page
-    html+=`<div class="scope-head">${esc(label)} · ${rs.length}</div>`
-        +rs.map(r=>reqRow(r,r._scope==='subdivision')).join('');
+    html+=`<div class="scope-group" data-scope="${scope}">
+        <div class="scope-head"><span class="chev">▾</span>${esc(label)} · ${rs.length}</div>
+        <div class="scope-body">${rs.map(r=>reqRow(r,r._scope==='subdivision')).join('')}</div>
+      </div>`;
   }
   const obs=all.filter(r=>r.conf==='observed').length;
   return `<div class="panel"><div class="panel-head"><h3>Rules that apply here</h3>

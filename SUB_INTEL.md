@@ -30,6 +30,22 @@ its own gate code, super, access warning, requirements, documents, and the
 **control points** — the benchmarks we recovered and the TBMs we set — each
 with its own documents, plotted on a map.
 
+## Two ways in
+
+**Jobs** is what opens, and it is what a crew uses. A flat list, no folders:
+**Near me** sorts every site by how far the truck is from it, **Active** is the
+43 subdivisions worked since August (they carry 69% of all jobs), **Recent** is
+what this phone opened, **All** is everything. A metro chip row narrows any of
+them — Orlando, Polk/I-4, Tampa, Sarasota–Bradenton, Daytona, Jacksonville,
+SW Florida, Space Coast. The mode and metro are remembered per device.
+
+Near me is the one that matters: the truck is parked at the subdivision, so one
+tap puts it at the top of the list with no typing and no idea how the county
+filed it. Location is asked once and never leaves the phone.
+
+**Library** is the filing system — counties, jurisdictions, builders and the
+rules. The office lives there. A crew never has to.
+
 ## The screens
 
 **Landing** — one card per city, with a count of jurisdictions, subs and

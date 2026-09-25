@@ -1050,6 +1050,7 @@ let DB={version:4,global:{reqs:[],docs:[]},builders:[],cities:[],jurs:[],subs:[]
 let route={v:'home'};
 let searchQ='';
 let mapState={map:null,layer:null,pickMode:null,showNear:true};
+let seedAction=null;
 
 /* ── requirement flags: the icons that show on a card at a glance ── */
 const FLAGS=[
@@ -1138,8 +1139,9 @@ function load(){
   DB.builders||=[];
   for(const c of DB.cities){c.reqs||=[];c.docs||=[];}
   for(const b of DB.builders){b.reqs||=[];b.docs||=[];}
-  // nothing saved and nothing seeded yet: lay the library down
-  if(!raw&&!DB.cities.length)seedLibrary();
+  // This used to be gated on there being no saved data at all, which meant
+  // anybody who had ever opened an older build never got the library.
+  seedAction=ensureSeed();
   for(const s of DB.subs){
     s.reqs||=[];s.docs||=[];s.points||=[];s.crs||={};s.builderIds||=[];
     s.flags=normFlags(s.flags);
@@ -1155,21 +1157,79 @@ function load(){
   for(const j of DB.jurs){j.reqs||=[];j.docs||=[];j.crs||={};j.flags=normFlags(j.flags);}
   // write the normalized shape straight back, so an old store is converted
   // once on open rather than re-read and re-converted on every load
-  if(raw)save();
+  if(raw||seedAction)save();
 }
-/* Lay the seeded library down as-is. Only ever called into an empty store —
-   it never overwrites anything somebody typed. */
+/* The seeded library as a plain document, so it can either be laid down
+   whole or folded into a store that already exists. */
+function seedDoc(){
+  return {
+    version:4, seedV:SEED.v,
+    global:{reqs:structuredClone(SEED.global.reqs),docs:[]},
+    builders:structuredClone(SEED.builders).map(b=>({...b,docs:[]})),
+    cities:structuredClone(SEED.cities).map(c=>({...c,docs:[]})),
+    jurs:structuredClone(SEED.jurs).map(j=>({...j,docs:[],crs:{},flags:{},reqs:j.reqs||[]})),
+    subs:structuredClone(SEED.subs).map(s=>({
+      gate:'',contactName:'',contactPhone:'',access:'',benchmark:'',notes:'',
+      crs:{},flags:{},docs:[],points:[],builderIds:[],reqs:[],...s}))
+  };
+}
 function seedLibrary(){
-  DB.global={reqs:structuredClone(SEED.global.reqs),docs:[]};
-  DB.builders=structuredClone(SEED.builders).map(b=>({...b,docs:[]}));
-  DB.cities=structuredClone(SEED.cities).map(c=>({...c,docs:[]}));
-  DB.jurs=structuredClone(SEED.jurs).map(j=>({...j,docs:[],crs:{},flags:{},reqs:j.reqs||[]}));
-  DB.subs=structuredClone(SEED.subs).map(s=>({
-    gate:'',contactName:'',contactPhone:'',access:'',benchmark:'',notes:'',
-    crs:{},flags:{},docs:[],points:[],builderIds:[],reqs:[],...s}));
-  DB.seededAt=SEED.generated;
-  DB.version=4;
+  const d=seedDoc();
+  DB.global=d.global;DB.builders=d.builders;DB.cities=d.cities;DB.jurs=d.jurs;DB.subs=d.subs;
+  DB.seedV=SEED.v;DB.seededAt=SEED.generated;DB.version=4;
 }
+const mergeById=(mine,inc)=>{
+  const out=(mine||[]).slice();
+  for(const r of (inc||[])){
+    const i=out.findIndex(x=>x.id===r.id);
+    if(i>=0)out[i]={...out[i],...r}; else out.push(r);
+  }
+  return out;
+};
+/* Folding a newer library into one that is already here. Seeded records carry
+   stable ids, so they are matched by id, never by name — matching by name is
+   how a sub that moved from "Unincorporated Osceola" into St. Cloud would come
+   back as a duplicate. Anything typed into this browser is left alone: the
+   seed sets the facts it owns and fills blanks, and never overwrites a field
+   somebody filled in. */
+function applySeedUpdate(){
+  const d=seedDoc();
+  DB.global.reqs=mergeById(DB.global.reqs,d.global.reqs);
+  for(const kind of ['builders','cities','jurs']){
+    const cur=Object.fromEntries(DB[kind].map(x=>[x.id,x]));
+    for(const inc of d[kind]){
+      const ex=cur[inc.id];
+      if(!ex){DB[kind].push(inc);continue;}
+      ex.name=inc.name;
+      for(const k of ['cityId','state','kind'])if(inc[k]!==undefined)ex[k]=inc[k];
+      if(inc.notes&&!ex.notes)ex.notes=inc.notes;
+      ex.reqs=mergeById(ex.reqs,inc.reqs);
+    }
+  }
+  const cur=Object.fromEntries(DB.subs.map(x=>[x.id,x]));
+  for(const inc of d.subs){
+    const ex=cur[inc.id];
+    if(!ex){DB.subs.push(inc);continue;}
+    ex.name=inc.name;
+    // the jurisdiction work is the whole point of an update, so it lands
+    for(const k of ['jurId','jurBasis','lat','lon','aliases','active','lastJob','jobs','workTypes','builderIds'])
+      if(inc[k]!==undefined)ex[k]=inc[k];
+    // these three mean something by their absence — a resolved dispute clears
+    for(const k of ['jurNote','disputed','munCandidate'])
+      if(inc[k]!==undefined)ex[k]=inc[k]; else delete ex[k];
+    if(inc.notes&&!ex.notes)ex.notes=inc.notes;
+    ex.reqs=mergeById(ex.reqs,inc.reqs);
+  }
+  DB.seedV=SEED.v;DB.seededAt=SEED.generated;DB.version=4;
+}
+/* An empty library gets the seed laid down. A library from an older seed gets
+   the new one folded in. Either way nobody has to know a seed exists. */
+function ensureSeed(){
+  if(!DB.cities.length){seedLibrary();return 'seeded';}
+  if(DB.seedV!==SEED.v){applySeedUpdate();return 'updated';}
+  return null;
+}
+
 
 /* Flags are stored {key: detail} so "hour limits" can say which hours. This
    reads the old array form too, and drops keys no longer in the catalog. */
@@ -2485,7 +2545,15 @@ function importJson(input){
   input.value='';
 }
 /* merge by name so two people can keep parallel copies and combine them */
+/* Keep an incoming id when nothing here is using it. Minting a new one every
+   time is what broke the seed: its records carry stable ids, and an
+   export/import round trip was throwing them away, so the next seed update
+   could not match them and added all 104 a second time. */
+const keepId=(id,taken)=>(id&&!taken.has(id))?id:uid();
+
 function mergeIn(d){
+  if(d.seedV!==undefined)DB.seedV=d.seedV;
+  if(d.seededAt)DB.seededAt=d.seededAt;
   // the two scopes that are not places
   DB.global||={reqs:[],docs:[]};
   if(d.global){
@@ -2499,7 +2567,7 @@ function mergeIn(d){
       ex.reqs=mergeList(ex.reqs,b.reqs,'title');
       ex.docs=mergeList(ex.docs||[],b.docs,'title');
       ex.notes=ex.notes||b.notes;
-    }else{ex={...b,id:uid(),reqs:b.reqs||[],docs:b.docs||[]};DB.builders.push(ex);}
+    }else{ex={...b,id:keepId(b.id,new Set(DB.builders.map(x=>x.id))),reqs:b.reqs||[],docs:b.docs||[]};DB.builders.push(ex);}
     builderIdMap[b.id]=ex.id;
   }
 
@@ -2527,7 +2595,7 @@ function mergeIn(d){
       ex.docs=mergeList(ex.docs,j.docs,'title');
       ex.notes=ex.notes||j.notes;
     }else{
-      const nj={...j,id:uid(),cityId:cid};
+      const nj={...j,id:keepId(j.id,new Set(DB.jurs.map(x=>x.id))),cityId:cid};
       DB.jurs.push(nj);jurIdMap[j.id]=nj.id;
     }
   }
@@ -2547,7 +2615,7 @@ function mergeIn(d){
       ex.reqs=mergeList(ex.reqs,s.reqs,'title');
       ex.docs=mergeList(ex.docs,s.docs,'title');
       ex.points=mergeList(ex.points,s.points,'name');
-    }else DB.subs.push({...s,id:uid(),jurId:jid,
+    }else DB.subs.push({...s,id:keepId(s.id,new Set(DB.subs.map(x=>x.id))),jurId:jid,
       builderIds:(s.builderIds||[]).map(b=>builderIdMap[b]||b)});
   }
 }
@@ -2556,7 +2624,7 @@ function mergeList(a,b,key){
   for(const item of (b||[])){
     const ex=out.find(x=>normKey(x[key])===normKey(item[key]));
     if(ex)Object.assign(ex,{...item,id:ex.id});
-    else out.push({...item,id:uid()});
+    else out.push({...item,id:keepId(item.id,new Set(out.map(x=>x.id)))});
   }
   return out;
 }
@@ -2643,6 +2711,8 @@ if('serviceWorker' in navigator&&window.isSecureContext){
 
 load();
 readRoute();
+if(seedAction==='updated')toast('library updated to the latest survey');
+
 </script>
 </body>
 </html>

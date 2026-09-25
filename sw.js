@@ -10,7 +10,7 @@
    the requirements, the coordinates — is local and works without it.
 
    Bump VERSION on every deploy; that is what retires the old cache. */
-const VERSION = 'v3.0.0';
+const VERSION = 'v3.1.0';
 const SHELL = 'sub-intel-shell-' + VERSION;
 
 const SHELL_FILES = [

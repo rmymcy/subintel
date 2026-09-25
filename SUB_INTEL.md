@@ -82,7 +82,10 @@ everywhere  →  county  →  municipality  →  builder  →  subdivision
 **Everywhere** is the company baseline and state law — FAC 5J-17 monumentation,
 Fla. Stat. 177 plat monuments, 472.029 right of entry, the 811 locate exemption.
 **Builder** is the scope people forget: a builder's rules follow their sites
-across every county they work in.
+across every county they work in. 21 builders cover 83 of the 104 subdivisions,
+and seven sites carry more than one — Brighton/Jacaranda has three. Division
+codes from the export (MCO, SRQ, TPA, JAX, RSW, SAV) are ignored and folded into
+the brand, so a Lennar rule is written once rather than three times.
 
 Every rule carries what kind it is (tolerance, monument, inspection, PPE, hours,
 benchmark, submittal, access), what work it applies to, where it came from, and

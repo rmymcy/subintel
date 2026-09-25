@@ -1541,7 +1541,11 @@ function homeView(){
       <div class="panel-body"><div class="hint">Census TIGER 2019 puts each of these outside every city
         boundary, but their mailing address says otherwise. Florida annexes fast. Pull one permit for each
         and you will know — and the city's rules will start reaching the sub.</div></div></div>`:''}
-    <div class="grid">${scopeCards}${cards}</div>`;
+    <div class="grid">${scopeCards}</div>
+    <div class="panel" style="margin-top:12px"><div class="panel-head"><h3>Counties</h3>
+        <span class="n">${DB.cities.length}</span>
+        <span class="spacer"></span><button class="btn btn-sm" onclick="editCity()">+ add</button></div>
+      <div class="panel-body"><div class="grid">${cards}</div></div></div>`;
 }
 
 /* ── a city: its counties / municipalities ── */
@@ -1571,9 +1575,11 @@ function cityView(c){
     ${c.notes?`<div class="panel"><div class="panel-body"><div class="note-box">${esc(c.notes)}</div></div></div>`:''}
     ${reqPanel(c.reqs||[],'Rules — everything in this county','city',c.id)}
     ${docPanel(c.docs||[],'Documents','city',c.id)}
-    ${js.length?`<div class="grid">${cards}</div>`
-      :`<div class="grid"><div class="empty-hint">No county or municipality filed under ${esc(c.name)} yet.<br><br>
-        <button class="btn btn-primary" onclick="editJur(null,${q(c.id)})">+ Add one</button></div></div>`}`;
+    <div class="panel"><div class="panel-head"><h3>Jurisdictions</h3><span class="n">${js.length}</span>
+        <span class="spacer"></span>
+        <button class="btn btn-sm" onclick="editJur(null,${q(c.id)})">+ add</button></div>
+      <div class="panel-body">${js.length?`<div class="grid">${cards}</div>`
+        :`<div class="empty-line">No county or municipality filed under ${esc(c.name)} yet.</div>`}</div></div>`;
 }
 
 /* ── a jurisdiction: its requirements, docs, and the subs under it ── */
@@ -1597,10 +1603,11 @@ function jurView(j){
     ${docPanel(j.docs||[],'Documents to reference','jur',j.id)}
     ${j.notes?`<div class="panel"><div class="panel-head"><h3>Notes</h3></div><div class="panel-body"><div class="note-box">${esc(j.notes)}</div></div></div>`:''}
 
-    <div class="view-head" style="margin-top:18px"><div class="view-title" style="font-size:15px">Subdivisions</div></div>
-    ${ss.length?`<div class="grid wide">${cards}</div>`
-      :`<div class="grid"><div class="empty-hint">No subdivisions filed under ${esc(j.name)} yet.<br><br>
-        <button class="btn btn-primary" onclick="editSub(null,${q(j.id)})">+ Add one</button></div></div>`}`;
+    <div class="panel"><div class="panel-head"><h3>Subdivisions</h3><span class="n">${ss.length}</span>
+        <span class="spacer"></span>
+        <button class="btn btn-sm" onclick="editSub(null,${q(j.id)})">+ add</button></div>
+      <div class="panel-body">${ss.length?`<div class="grid wide">${cards}</div>`
+        :`<div class="empty-line">No subdivisions filed under ${esc(j.name)} yet.</div>`}</div></div>`;
 }
 
 function globalView(){
@@ -1630,8 +1637,9 @@ function builderView(b){
       <span class="spacer"></span><button class="btn" onclick="editBuilder(${q(b.id)})">edit</button></div>
     ${reqPanel(b.reqs,'Rules on every site they build','builder',b.id)}
     ${docPanel(b.docs||[],'Documents','builder',b.id)}
-    ${ss.length?`<div class="view-head" style="margin-top:18px"><div class="view-title" style="font-size:15px">Their subdivisions</div></div>
-      <div class="grid wide">${ss.map(subCard).join('')}</div>`:''}`;
+    ${ss.length?`<div class="panel"><div class="panel-head"><h3>Their subdivisions</h3>
+        <span class="n">${ss.length}</span></div>
+      <div class="panel-body"><div class="grid wide">${ss.map(subCard).join('')}</div></div></div>`:''}`;
 }
 
 function subCard(s){
